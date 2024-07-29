@@ -1,0 +1,36 @@
+[package]
+name = "pvz"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lints.clippy]
+missing-const-for-fn = "deny"
+unused-enumerate-index = "deny"
+as-underscore = "deny"
+str-to-string = "deny"
+too-many-lines = "deny"
+todo = "warn"
+get-unwrap = "warn"
+unwrap-used = "warn"
+unwrap_in_result = "warn"
+map_unwrap_or = "warn"
+
+[dependencies]
+rand = "=0.8.5"
+sdl = { path = "../lib" }
+
+[dependencies.sdl2]
+version = "=0.37.0"
+default-features = false
+features = ["ttf","image","gfx","mixer","static-link","use-vcpkg"]
+
+[package.metadata.vcpkg]
+dependencies = ["sdl2", "sdl2-image[libjpeg-turbo,tiff,libwebp]", "sdl2-ttf", "sdl2-gfx", "sdl2-mixer"]
+git = "https://github.com/microsoft/vcpkg"
+rev = "2024.05.24" # release 2024.05.24 # to check for a new one, check https://github.com/microsoft/vcpkg/releases
+
+[package.metadata.vcpkg.target]
+x86_64-pc-windows-msvc = { triplet = "x64-windows-static-md" }
