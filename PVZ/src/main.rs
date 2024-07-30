@@ -1,6 +1,8 @@
 mod entity;
 mod level;
 mod plant;
+mod projectile;
+mod shop;
 mod textures;
 mod win;
 mod zombie;

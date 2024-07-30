@@ -1,17 +1,14 @@
+use std::time::Duration;
+
 use sdl::game_window::GameWindow;
 use sdl2::{event::Event, keyboard::Keycode, pixels::Color, render::Canvas, video::Window};
 
-use crate::{
-    level::{DefaultConfig, ILevel, Level},
-    plant::Plant1,
-    textures::load_textures,
-    zombie::Zombie1,
-};
+use crate::{level::Level, textures::load_textures};
 
 pub struct Win {
     running: bool,
 
-    level: Box<dyn ILevel>,
+    level: Level,
 }
 
 impl Win {
@@ -20,76 +17,7 @@ impl Win {
 
         Ok(Self {
             running: true,
-            level: Box::new(Level {
-                showing_zombies: true,
-                plants: [
-                    [
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                    ],
-                    [
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                    ],
-                    [
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                    ],
-                    [
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                    ],
-                    [
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                        Some(Box::new(Plant1 {})),
-                    ],
-                ],
-                zombies: [
-                    vec![Box::new(Zombie1 { pos: 0. })],
-                    vec![Box::new(Zombie1 { pos: 0. })],
-                    vec![Box::new(Zombie1 { pos: 0. })],
-                    vec![Box::new(Zombie1 { pos: 0. })],
-                    vec![Box::new(Zombie1 { pos: 0. })],
-                ],
-                config: Box::new(DefaultConfig {
-                    probs: vec![(Box::new(Zombie1 { pos: 0. }), 0.006)],
-                }),
-            }),
+            level: Level::load_config("levels/level0.data").map_err(|e| e.to_string())?,
         })
     }
 }
@@ -99,8 +27,8 @@ impl GameWindow for Win {
         self.running
     }
 
-    fn update(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        self.level.update(canvas)
+    fn update(&mut self, canvas: &mut Canvas<Window>, elapsed: Duration) -> Result<(), String> {
+        self.level.update(canvas, elapsed)
     }
 
     fn event(&mut self, canvas: &mut Canvas<Window>, event: Event) -> Result<(), String> {
@@ -112,7 +40,7 @@ impl GameWindow for Win {
             } => self.running = false,
             _ => {}
         }
-        self.level.event(canvas, event)
+        self.level.event(canvas, event.clone())
     }
 
     fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {

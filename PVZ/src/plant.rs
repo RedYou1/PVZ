@@ -1,14 +1,23 @@
+use std::time::Duration;
+
 use sdl2::render::Texture;
 
-use crate::{entity::Entity, textures};
+use crate::{
+    entity::Entity,
+    projectile::{Pea, Projectile},
+    textures,
+};
 
 pub trait Plant: Entity {
     fn clone(&self) -> Box<dyn Plant>;
     fn cost(&self) -> usize;
+    fn should_spawn(&mut self, x: i32, y: usize) -> Vec<(usize, Box<dyn Projectile>)>;
 }
 
-#[derive(Clone)]
-pub struct Plant1 {}
+#[derive(Default, Clone)]
+pub struct Plant1 {
+    charge: Duration,
+}
 impl Entity for Plant1 {
     fn texture(&self) -> &'static Texture<'static> {
         textures::p1()
@@ -21,16 +30,27 @@ impl Entity for Plant1 {
         100
     }
 
-    fn update(&mut self, _: bool) -> Result<(), String> {
+    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
+        if playing {
+            self.charge += elapsed;
+        }
         Ok(())
     }
 }
 impl Plant for Plant1 {
     fn cost(&self) -> usize {
-        1
+        10
     }
 
     fn clone(&self) -> Box<dyn Plant> {
         Box::new(Clone::clone(self))
+    }
+
+    fn should_spawn(&mut self, x: i32, y: usize) -> Vec<(usize, Box<dyn Projectile>)> {
+        if self.charge >= Duration::from_millis(5000) {
+            self.charge -= Duration::from_millis(5000);
+            return vec![(y, Box::new(Pea { x: x as f32 - 25. }))];
+        }
+        Vec::new()
     }
 }

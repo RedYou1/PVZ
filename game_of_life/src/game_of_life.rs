@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use sdl2::{
     event::Event,
     keyboard::Keycode,
@@ -225,7 +227,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> GameWindow for GameOfLife<WIDTH, H
         self.running
     }
 
-    fn update(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+    fn update(&mut self, canvas: &mut Canvas<Window>, _: Duration) -> Result<(), String> {
         if let State::Paused = self.state {
             return Ok(());
         }

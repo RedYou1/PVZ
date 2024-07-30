@@ -51,6 +51,7 @@ pub fn run<Game: GameWindow, Func: Fn(&mut Canvas<Window>) -> Result<Game, Strin
 
     let mut game = func(&mut canvas)?;
 
+    let mut update_time = time::Instant::now();
     let mut event_pump = sdl_context.event_pump()?;
     while game.running() {
         let now = time::Instant::now();
@@ -59,7 +60,10 @@ pub fn run<Game: GameWindow, Func: Fn(&mut Canvas<Window>) -> Result<Game, Strin
             game.event(&mut canvas, event)?;
         }
 
-        game.update(&mut canvas)?;
+        let now_update = time::Instant::now();
+        let elapsed = now_update - update_time;
+        update_time = now_update;
+        game.update(&mut canvas, elapsed)?;
         game.draw(&mut canvas)?;
         canvas.present();
 
