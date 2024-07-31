@@ -6,7 +6,7 @@ use crate::{entity::Entity, textures};
 
 pub fn zombie_from_id(id: u8) -> Box<dyn Zombie> {
     match id {
-        0 => Box::new(Zombie1 {
+        0 => Box::new(ZombieSimple {
             pos: 0.,
             health: false,
         }),
@@ -15,29 +15,30 @@ pub fn zombie_from_id(id: u8) -> Box<dyn Zombie> {
 }
 
 pub trait Zombie: Entity {
+    fn set_pos(&mut self, x: f32);
     fn pos(&self) -> f32;
     fn hit(&mut self) -> bool;
 }
 
-pub struct Zombie1 {
+pub struct ZombieSimple {
     pub pos: f32,
     pub health: bool,
 }
 
-impl Entity for Zombie1 {
+impl Entity for ZombieSimple {
     fn texture(&self) -> &'static Texture<'static> {
         if self.health {
-            textures::z1_1()
+            textures::zombie_simple_1()
         } else {
-            textures::z1()
+            textures::zombie_simple()
         }
     }
 
     fn width(&self) -> u16 {
-        90
+        55
     }
     fn height(&self) -> u16 {
-        159
+        137
     }
     fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
         if playing {
@@ -46,7 +47,11 @@ impl Entity for Zombie1 {
         Ok(())
     }
 }
-impl Zombie for Zombie1 {
+impl Zombie for ZombieSimple {
+    fn set_pos(&mut self, x: f32) {
+        self.pos = x;
+    }
+
     fn pos(&self) -> f32 {
         self.pos
     }

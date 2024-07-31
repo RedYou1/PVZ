@@ -13,6 +13,7 @@ pub fn main() -> Result<(), String> {
         30.,
         (SQUARE_SIZE * WIDTH) as u32,
         (SQUARE_SIZE * HEIGHT) as u32,
+        |window| window.position_centered(),
         GameOfLife::<WIDTH, HEIGHT>::new,
     )
 }

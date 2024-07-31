@@ -3,30 +3,42 @@ use sdl2::{
     render::Canvas, video::Window,
 };
 
-use crate::plant::{Plant, Plant1};
+use crate::{
+    level::LevelConfig,
+    plant::{Plant, PlantSimple, PlantTriple},
+    win::set_scale,
+};
 
 pub struct Shop {
     pub plants: Vec<Box<dyn Plant>>,
     pub dragging: Option<(i32, i32, Box<dyn Plant>)>,
-    pub money: usize,
+    pub money: u32,
 }
 
 impl Shop {
-    pub fn new() -> Self {
+    pub fn new(money: u32) -> Self {
         Shop {
-            plants: vec![Box::new(Plant1::default())],
+            plants: vec![
+                Box::new(PlantSimple::default()),
+                Box::new(PlantTriple::default()),
+            ],
             dragging: None,
-            money: 50,
+            money,
         }
     }
 
     #[allow(clippy::type_complexity)]
     pub fn event(
         &mut self,
-        plants: &[[Option<Box<dyn Plant>>; 9]],
-        _: &mut Canvas<Window>,
+        config: &LevelConfig,
+        plants: &[Vec<Option<Box<dyn Plant>>>],
+        canvas: &mut Canvas<Window>,
         event: Event,
     ) -> Result<Option<(usize, usize, Box<dyn Plant>)>, String> {
+        let (width, height) = canvas.output_size()?;
+        let scale_x = |x: i32| x as f32 * 1280. / width as f32;
+        let scale_y = |y: i32| y as f32 * 720. / height as f32;
+
         let mut ret = None;
         match event {
             Event::MouseButtonUp {
@@ -36,15 +48,14 @@ impl Shop {
                 ..
             } => {
                 if let Some((_, _, plant)) = self.dragging.as_ref() {
-                    if self.money >= plant.cost()
-                        && (308..=1181).contains(&x)
-                        && (102..=687).contains(&y)
-                    {
-                        let x = ((x - 308) as f32 / 97.).floor() as usize;
-                        let y = ((y - 102) as f32 / 117.).floor() as usize;
-                        if plants[y][x].is_none() {
-                            self.money -= plant.cost();
-                            ret = Some((x, y, plant.as_ref().clone()));
+                    if self.money >= plant.cost() {
+                        if let Some(x) = config.coord_to_pos_x(scale_x(x) as i32) {
+                            if let Some(y) = config.coord_to_pos_y(scale_y(y) as i32) {
+                                if plants[y][x].is_none() {
+                                    self.money -= plant.cost();
+                                    ret = Some((x, y, plant.as_ref().clone()));
+                                }
+                            }
                         }
                     }
                     self.dragging = None;
@@ -56,32 +67,34 @@ impl Shop {
                 y,
                 ..
             } => {
-                if let [plant] = self
-                    .plants
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, plant)| {
-                        if x >= i as i32 * 97 + 10
-                            && x <= i as i32 * 97 + 10 + plant.width() as i32
-                            && y >= 10
-                            && y <= 10 + plant.height() as i32
-                        {
-                            Some(plant.as_ref())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<&dyn Plant>>()[..]
-                {
-                    if self.money >= plant.cost() {
+                let x = scale_x(x) as i32;
+                let y = scale_y(y) as i32;
+                if self.dragging.is_none() {
+                    if let [plant] = self
+                        .plants
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, plant)| {
+                            if x >= i as i32 * 97 + 10
+                                && x <= i as i32 * 97 + 10 + plant.width() as i32
+                                && y >= 10
+                                && y <= 10 + plant.height() as i32
+                            {
+                                Some(plant.as_ref())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<&dyn Plant>>()[..]
+                    {
                         self.dragging = Some((x, y, plant.clone()));
                     }
                 }
             }
             Event::MouseMotion { x, y, .. } => {
                 if let Some(plant) = self.dragging.as_mut() {
-                    plant.0 = x;
-                    plant.1 = y;
+                    plant.0 = scale_x(x) as i32;
+                    plant.1 = scale_y(y) as i32;
                 }
             }
             _ => {}
@@ -89,7 +102,7 @@ impl Shop {
         Ok(ret)
     }
 
-    pub fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+    pub fn draw(&self, canvas: &mut Canvas<Window>, config: &LevelConfig) -> Result<(), String> {
         canvas.fill_rect(Rect::new(0, 0, self.plants.len() as u32 * 97 + 100, 130))?;
         for (i, plant) in self.plants.iter().enumerate() {
             canvas.copy(
@@ -99,16 +112,25 @@ impl Shop {
             )?;
         }
         if let Some((x, y, plant)) = self.dragging.as_ref() {
-            canvas.copy(plant.texture(), None, Rect::new(*x - 40, *y - 53, 80, 106))?;
+            canvas.copy(
+                plant.texture(),
+                None,
+                Rect::new(
+                    *x - 40,
+                    *y - 53,
+                    config.col_width() - 10,
+                    config.row_heigth() - 10,
+                ),
+            )?;
         }
         const SCALE: i16 = 3;
-        canvas.set_scale(SCALE as f32, SCALE as f32)?;
+        set_scale(canvas, SCALE as f32, SCALE as f32)?;
         canvas.string(
             (self.plants.len() as i16 * 97 + 10) / SCALE,
-            30 / SCALE,
+            (42.5 / SCALE as f32).floor() as i16,
             format!("{}$", self.money).as_str(),
             Color::RGB(255, 255, 255),
         )?;
-        canvas.set_scale(1., 1.)
+        set_scale(canvas, 1., 1.)
     }
 }

@@ -7,13 +7,18 @@ use std::{thread, time};
 use game_window::GameWindow;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
-use sdl2::video::Window;
+use sdl2::video::{Window, WindowBuilder};
 
-pub fn run<Game: GameWindow, Func: Fn(&mut Canvas<Window>) -> Result<Game, String>>(
+pub fn run<
+    Game: GameWindow,
+    Func: Fn(&mut Canvas<Window>) -> Result<Game, String>,
+    Func2: Fn(&mut WindowBuilder) -> &mut WindowBuilder,
+>(
     title: &str,
     fps: f32,
     width: u32,
     height: u32,
+    window: Func2,
     func: Func,
 ) -> Result<(), String> {
     let fps = time::Duration::from_secs_f32(1. / fps);
@@ -25,15 +30,13 @@ pub fn run<Game: GameWindow, Func: Fn(&mut Canvas<Window>) -> Result<Game, Strin
     // however you can only manipulate properties of that window, like its size, whether it's
     // fullscreen, ... but you cannot change its content without using a Canvas or using the
     // `surface()` method.
-    let window = video_subsystem
-        .window(title, width, height)
-        .position_centered()
-        .build()
-        .map_err(|e| e.to_string())?;
+    let mut windowb = video_subsystem.window(title, width, height);
 
     // the canvas allows us to both manipulate the property of the window and to change its content
     // via hardware or software rendering. See CanvasBuilder for more info.
-    let mut canvas = window
+    let mut canvas = window(&mut windowb)
+        .build()
+        .map_err(|e| e.to_string())?
         .into_canvas()
         .target_texture()
         .present_vsync()
