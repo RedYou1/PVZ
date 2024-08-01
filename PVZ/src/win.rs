@@ -3,7 +3,6 @@ use std::{fs, time::Duration};
 use sdl::game_window::GameWindow;
 use sdl2::{
     event::Event,
-    gfx::primitives::DrawRenderer,
     keyboard::Keycode,
     mouse::MouseButton,
     pixels::Color,
@@ -12,7 +11,10 @@ use sdl2::{
     video::{FullscreenType, Window},
 };
 
-use crate::{level::Level, textures::load_textures};
+use crate::{
+    level::Level,
+    textures::{draw_string, load_textures},
+};
 
 pub struct Win {
     running: bool,
@@ -24,7 +26,7 @@ pub struct Win {
 
 impl Win {
     pub fn new(canvas: &mut Canvas<Window>) -> Result<Self, String> {
-        load_textures(Box::leak(Box::new(canvas.texture_creator())))?;
+        load_textures(canvas, Box::leak(Box::new(canvas.texture_creator())))?;
         let levels_count = fs::read_dir("levels").map_err(|e| e.to_string())?.count();
         if levels_count == 0 || fs::read_dir("levels").map_err(|e| e.to_string())?.count() > 99 {
             return Err("Too much or no levels".to_owned());
@@ -149,12 +151,24 @@ impl GameWindow for Win {
                 canvas.fill_rect(Rect::new(565, 260, 150, 40))?;
                 canvas.fill_rect(Rect::new(565, 320, 150, 40))?;
 
-                const SCALE: i16 = 4;
-                set_scale(canvas, SCALE as f32, SCALE as f32)?;
-                canvas.string(574 / SCALE, 206 / SCALE, "FULL", Color::RGB(255, 255, 255))?;
-                canvas.string(574 / SCALE, 266 / SCALE, "RETN", Color::RGB(255, 255, 255))?;
-                canvas.string(574 / SCALE, 326 / SCALE, "QUIT", Color::RGB(255, 255, 255))?;
-                set_scale(canvas, 1., 1.)?;
+                draw_string(
+                    canvas,
+                    Rect::new(575, 206, 130, 28),
+                    "Plein écran",
+                    Color::RGB(255, 255, 255),
+                )?;
+                draw_string(
+                    canvas,
+                    Rect::new(575, 266, 130, 28),
+                    "Retour",
+                    Color::RGB(255, 255, 255),
+                )?;
+                draw_string(
+                    canvas,
+                    Rect::new(575, 326, 130, 28),
+                    "Quitter",
+                    Color::RGB(255, 255, 255),
+                )?;
             }
             return Ok(());
         }
@@ -169,19 +183,27 @@ impl GameWindow for Win {
             canvas.fill_rect(Rect::new(645, 200 + i as i32 * 60, 150, 40))?;
         }
 
-        const SCALE: i16 = 4;
-        set_scale(canvas, SCALE as f32, SCALE as f32)?;
-        canvas.string(494 / SCALE, 206 / SCALE, "FULL", Color::RGB(255, 255, 255))?;
-        canvas.string(494 / SCALE, 266 / SCALE, "QUIT", Color::RGB(255, 255, 255))?;
+        draw_string(
+            canvas,
+            Rect::new(495, 206, 130, 28),
+            "Plein écran",
+            Color::RGB(255, 255, 255),
+        )?;
+        draw_string(
+            canvas,
+            Rect::new(495, 266, 130, 28),
+            "Quitter",
+            Color::RGB(255, 255, 255),
+        )?;
+
         for i in 0..self.levels_count {
-            canvas.string(
-                654 / SCALE,
-                (206 + i as i16 * 60) / SCALE,
-                format!(" {}{} ", (i + 1) / 10, (i + 1) % 10).as_str(),
+            draw_string(
+                canvas,
+                Rect::new(654, 206 + i as i32 * 60, 130, 28),
+                format!("{:0>3}", i + 1).as_str(),
                 Color::RGB(255, 255, 255),
             )?;
         }
-        set_scale(canvas, 1., 1.)?;
         Ok(())
     }
 }

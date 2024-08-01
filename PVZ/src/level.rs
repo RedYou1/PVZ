@@ -6,24 +6,17 @@ use std::{
 
 use rand::Rng;
 use sdl2::{
-    event::Event, gfx::primitives::DrawRenderer, keyboard::Keycode, pixels::Color, rect::Rect,
-    render::Canvas, video::Window,
+    event::Event, keyboard::Keycode, pixels::Color, rect::Rect, render::Canvas, video::Window,
 };
 
 use crate::{
     plant::Plant,
-    projectile::Projectile,
+    projectile::{DamageType, Projectile},
     shop::Shop,
-    textures,
-    win::set_scale,
+    textures::{self, draw_string},
     zombie::{zombie_from_id, Zombie},
 };
 
-/// Slots:
-///     left: 308 + x * 97
-///     top: 102 + y * 117
-///     width: 80
-///     heigth: 106
 pub struct Level {
     pub showing_zombies: bool,
     pub plants: Vec<Vec<Option<Box<dyn Plant>>>>,
@@ -129,15 +122,12 @@ impl Level {
             self.shop.draw(canvas, &self.config)?;
         }
         if let Some(end) = self.end {
-            const SCALE: i16 = 10;
-            set_scale(canvas, SCALE as f32, SCALE as f32)?;
-            canvas.string(
-                1280 / SCALE / 2 - 14,
-                720 / SCALE / 2 - 3,
-                if end { "WIN" } else { "LOSE" },
+            draw_string(
+                canvas,
+                Rect::new(320, 180, 640, 540),
+                if end { "Victoire" } else { "Défaite" },
                 Color::RGB(255, 255, 255),
             )?;
-            set_scale(canvas, 1., 1.)?;
         }
         Ok(())
     }
@@ -165,34 +155,32 @@ impl Level {
             return Ok(());
         }
 
-        for (y, projs) in self.projectiles.iter_mut().enumerate() {
+        for y in 0..self.projectiles.len() {
             let mut indx = Vec::new();
-            for (i, proj) in projs.iter_mut().enumerate() {
-                proj.update(!self.showing_zombies, elapsed)?;
-                if let Some(&iz) = self.zombies[y]
-                    .iter_mut()
-                    .enumerate()
-                    .filter_map(|(i, z)| {
-                        let zx = 1280 - (z.pos() * 1280.).floor() as i32;
-                        if zx + z.width() as i32 >= proj.x() && zx <= proj.x() + proj.width() as i32
-                        {
-                            Some(i)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<usize>>()
-                    .first()
-                {
-                    if self.zombies[y][iz].hit() {
-                        self.zombies[y].remove(iz);
-                        self.shop.money += 1;
-                    }
+            for i in 0..self.projectiles[y].len() {
+                self.projectiles[y][i].update(!self.showing_zombies, elapsed)?;
+
+                let proj = self.projectiles[y][i].as_ref();
+
+                if proj.to_remove() {
                     indx.insert(0, i);
+                    continue;
+                }
+
+                let mut zombie_to_remove =
+                    self.do_damage_to_zombies(y, proj.x(), proj.width() as i32, proj.damage_type());
+                if zombie_to_remove.0 {
+                    indx.insert(0, i);
+                }
+                zombie_to_remove.1.sort();
+                zombie_to_remove.1.reverse();
+                zombie_to_remove.1.dedup();
+                for zombie_index in zombie_to_remove.1 {
+                    self.zombies[y].remove(zombie_index);
                 }
             }
             for i in indx {
-                projs.remove(i);
+                self.projectiles[y].remove(i);
             }
         }
 
@@ -215,18 +203,17 @@ impl Level {
                 if elapsed >= f {
                     elapsed -= f;
                     self.config.wait.remove(0);
-                    if let Some(z) = self.config.zombies.first() {
-                        let mut rng = rand::thread_rng();
-                        let mut offsets: Vec<f32> = (0..self.config.rows).map(|_| 0.).collect();
-                        for &(zombie, _, _) in z {
-                            let mut z = zombie_from_id(zombie);
-                            let i = rng.gen_range(0..self.config.rows) as usize;
-                            z.set_pos(offsets[i]);
-                            offsets[i] -= 0.006;
-                            self.zombies[i].push(z);
-                        }
+                    let mut z = self.config.zombies.remove(0);
+                    let mut rng = rand::thread_rng();
+                    let mut offsets: Vec<f32> = (0..self.config.rows).map(|_| 0.).collect();
+                    while !z.is_empty() {
+                        let i = rng.gen_range(0..z.len());
+                        let mut z = zombie_from_id(z.remove(i).0);
+                        let i = rng.gen_range(0..self.config.rows) as usize;
+                        z.set_pos(offsets[i]);
+                        offsets[i] -= 0.006;
+                        self.zombies[i].push(z);
                     }
-                    self.config.zombies.remove(0);
                 }
             }
             if let Some(f) = self.config.wait.first_mut() {
@@ -235,6 +222,79 @@ impl Level {
         }
 
         Ok(())
+    }
+
+    fn do_damage_to_zombies(
+        &mut self,
+        y: usize,
+        proj_x: i32,
+        proj_width: i32,
+        proj_damage: DamageType,
+    ) -> (bool, Vec<usize>) {
+        let mut zombies = self.zombies[y]
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, z)| {
+                let zx = 1280 - (z.pos() * 1280.).floor() as i32 + z.hit_box().0 as i32;
+                if zx + z.hit_box().1 as i32 >= proj_x && zx <= proj_x + proj_width {
+                    Some((i, z.pos()))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<(usize, f32)>>();
+        zombies.sort_by(|(_, pos1), (_, pos2)| pos2.total_cmp(pos1));
+        if let Some(&(iz, _)) = zombies.first() {
+            (true, self.hit_zombie(y, iz, proj_damage, false))
+        } else {
+            (false, Vec::new())
+        }
+    }
+
+    fn hit_zombie(
+        &mut self,
+        y: usize,
+        zombie_index: usize,
+        damage_type: DamageType,
+        propagated: bool,
+    ) -> Vec<usize> {
+        let hit = self.zombies[y][zombie_index].hit(damage_type, propagated);
+        let mut to_remove = Vec::new();
+        if hit.0 {
+            self.shop.money += 1;
+            to_remove.push(zombie_index)
+        }
+        if hit.1 && !propagated {
+            to_remove.extend(self.propagate(y, zombie_index, damage_type));
+        }
+        to_remove
+    }
+
+    fn propagate(&mut self, y: usize, zombie_index: usize, damage_type: DamageType) -> Vec<usize> {
+        let size = {
+            let oz = self.zombies[y][zombie_index].as_ref();
+            let zx = 1280 - (oz.pos() * 1280.).floor() as i32 + oz.hit_box().0 as i32;
+            (zx, zx + oz.hit_box().1 as i32)
+        };
+        let mut to_remove = Vec::new();
+        for zombie_index2 in self.zombies[y]
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, z)| {
+                let zx = 1280 - (z.pos() * 1280.).floor() as i32 + z.hit_box().0 as i32;
+                if zx + z.hit_box().1 as i32 >= size.0 && zx <= size.1 {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<usize>>()
+        {
+            if zombie_index != zombie_index2 {
+                to_remove.extend(self.hit_zombie(y, zombie_index2, damage_type, true));
+            }
+        }
+        to_remove
     }
 
     #[allow(clippy::unwrap_in_result)]

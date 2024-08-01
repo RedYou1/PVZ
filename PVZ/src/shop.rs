@@ -1,12 +1,11 @@
 use sdl2::{
-    event::Event, gfx::primitives::DrawRenderer, mouse::MouseButton, pixels::Color, rect::Rect,
-    render::Canvas, video::Window,
+    event::Event, mouse::MouseButton, pixels::Color, rect::Rect, render::Canvas, video::Window,
 };
 
 use crate::{
     level::LevelConfig,
-    plant::{Plant, PlantSimple, PlantTriple},
-    win::set_scale,
+    plant::{Plant, PlantFireSimple, PlantIceSimple, PlantSimple, PlantTriple},
+    textures::draw_string,
 };
 
 pub struct Shop {
@@ -20,6 +19,8 @@ impl Shop {
         Shop {
             plants: vec![
                 Box::new(PlantSimple::default()),
+                Box::new(PlantIceSimple::default()),
+                Box::new(PlantFireSimple::default()),
                 Box::new(PlantTriple::default()),
             ],
             dragging: None,
@@ -103,6 +104,7 @@ impl Shop {
     }
 
     pub fn draw(&self, canvas: &mut Canvas<Window>, config: &LevelConfig) -> Result<(), String> {
+        canvas.set_draw_color(Color::BLACK);
         canvas.fill_rect(Rect::new(0, 0, self.plants.len() as u32 * 97 + 100, 130))?;
         for (i, plant) in self.plants.iter().enumerate() {
             canvas.copy(
@@ -123,14 +125,11 @@ impl Shop {
                 ),
             )?;
         }
-        const SCALE: i16 = 3;
-        set_scale(canvas, SCALE as f32, SCALE as f32)?;
-        canvas.string(
-            (self.plants.len() as i16 * 97 + 10) / SCALE,
-            (42.5 / SCALE as f32).floor() as i16,
+        draw_string(
+            canvas,
+            Rect::new(self.plants.len() as i32 * 97 + 10, 42, 80, 106),
             format!("{}$", self.money).as_str(),
             Color::RGB(255, 255, 255),
-        )?;
-        set_scale(canvas, 1., 1.)
+        )
     }
 }
