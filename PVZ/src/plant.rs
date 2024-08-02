@@ -4,7 +4,7 @@ use sdl2::render::Texture;
 
 use crate::{
     entity::Entity,
-    projectile::{FirePea, IcePea, Pea, Projectile},
+    projectile::{DamageType, Pea, Projectile},
     textures,
 };
 
@@ -15,13 +15,26 @@ pub trait Plant: Entity {
         -> Vec<(usize, Box<dyn Projectile>)>;
 }
 
-#[derive(Default, Clone)]
-pub struct PlantSimple {
+#[derive(Clone)]
+pub struct PeaShooter {
     charge: Duration,
+    damage_type: DamageType,
 }
-impl Entity for PlantSimple {
+impl PeaShooter {
+    pub const fn new(damage_type: DamageType) -> Self {
+        PeaShooter {
+            charge: Duration::ZERO,
+            damage_type,
+        }
+    }
+}
+impl Entity for PeaShooter {
     fn texture(&self) -> &'static Texture<'static> {
-        textures::plant_simple()
+        match self.damage_type {
+            DamageType::Normal => &textures::textures().plant_simple,
+            DamageType::Fire => &textures::textures().plant_fire_simple,
+            DamageType::Ice => &textures::textures().plant_ice_simple,
+        }
     }
 
     fn width(&self) -> u16 {
@@ -38,9 +51,13 @@ impl Entity for PlantSimple {
         Ok(())
     }
 }
-impl Plant for PlantSimple {
+impl Plant for PeaShooter {
     fn cost(&self) -> u32 {
-        10
+        match self.damage_type {
+            DamageType::Normal => 10,
+            DamageType::Fire => 30,
+            DamageType::Ice => 20,
+        }
     }
 
     fn clone(&self) -> Box<dyn Plant> {
@@ -50,89 +67,13 @@ impl Plant for PlantSimple {
     fn should_spawn(&mut self, x: i32, y: usize, _: usize) -> Vec<(usize, Box<dyn Projectile>)> {
         if self.charge >= Duration::from_millis(5000) {
             self.charge -= Duration::from_millis(5000);
-            return vec![(y, Box::new(Pea { x: x as f32 - 25. }))];
-        }
-        Vec::new()
-    }
-}
-
-#[derive(Default, Clone)]
-pub struct PlantFireSimple {
-    charge: Duration,
-}
-impl Entity for PlantFireSimple {
-    fn texture(&self) -> &'static Texture<'static> {
-        textures::plant_fire_simple()
-    }
-
-    fn width(&self) -> u16 {
-        70
-    }
-    fn height(&self) -> u16 {
-        100
-    }
-
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
-        if playing {
-            self.charge += elapsed;
-        }
-        Ok(())
-    }
-}
-impl Plant for PlantFireSimple {
-    fn cost(&self) -> u32 {
-        30
-    }
-
-    fn clone(&self) -> Box<dyn Plant> {
-        Box::new(Clone::clone(self))
-    }
-
-    fn should_spawn(&mut self, x: i32, y: usize, _: usize) -> Vec<(usize, Box<dyn Projectile>)> {
-        if self.charge >= Duration::from_millis(5000) {
-            self.charge -= Duration::from_millis(5000);
-            return vec![(y, Box::new(FirePea { x: x as f32 - 25. }))];
-        }
-        Vec::new()
-    }
-}
-
-#[derive(Default, Clone)]
-pub struct PlantIceSimple {
-    charge: Duration,
-}
-impl Entity for PlantIceSimple {
-    fn texture(&self) -> &'static Texture<'static> {
-        textures::plant_ice_simple()
-    }
-
-    fn width(&self) -> u16 {
-        70
-    }
-    fn height(&self) -> u16 {
-        100
-    }
-
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
-        if playing {
-            self.charge += elapsed;
-        }
-        Ok(())
-    }
-}
-impl Plant for PlantIceSimple {
-    fn cost(&self) -> u32 {
-        20
-    }
-
-    fn clone(&self) -> Box<dyn Plant> {
-        Box::new(Clone::clone(self))
-    }
-
-    fn should_spawn(&mut self, x: i32, y: usize, _: usize) -> Vec<(usize, Box<dyn Projectile>)> {
-        if self.charge >= Duration::from_millis(5000) {
-            self.charge -= Duration::from_millis(5000);
-            return vec![(y, Box::new(IcePea { x: x as f32 - 25. }))];
+            return vec![(
+                y,
+                Box::new(Pea {
+                    x: x as f32 - 25.,
+                    damage_type: self.damage_type,
+                }),
+            )];
         }
         Vec::new()
     }
@@ -144,7 +85,7 @@ pub struct PlantTriple {
 }
 impl Entity for PlantTriple {
     fn texture(&self) -> &'static Texture<'static> {
-        textures::plant_triple()
+        &textures::textures().plant_triple
     }
 
     fn width(&self) -> u16 {
@@ -180,19 +121,61 @@ impl Plant for PlantTriple {
             self.charge -= Duration::from_millis(5000);
             if y == 0 {
                 return vec![
-                    (y, Box::new(Pea { x: x as f32 - 25. })),
-                    (y + 1, Box::new(Pea { x: x as f32 - 25. })),
+                    (
+                        y,
+                        Box::new(Pea {
+                            x: x as f32 - 25.,
+                            damage_type: DamageType::Normal,
+                        }),
+                    ),
+                    (
+                        y + 1,
+                        Box::new(Pea {
+                            x: x as f32 - 25.,
+                            damage_type: DamageType::Normal,
+                        }),
+                    ),
                 ];
             } else if y == max_y {
                 return vec![
-                    (y - 1, Box::new(Pea { x: x as f32 - 25. })),
-                    (y, Box::new(Pea { x: x as f32 - 25. })),
+                    (
+                        y - 1,
+                        Box::new(Pea {
+                            x: x as f32 - 25.,
+                            damage_type: DamageType::Normal,
+                        }),
+                    ),
+                    (
+                        y,
+                        Box::new(Pea {
+                            x: x as f32 - 25.,
+                            damage_type: DamageType::Normal,
+                        }),
+                    ),
                 ];
             } else {
                 return vec![
-                    (y - 1, Box::new(Pea { x: x as f32 - 25. })),
-                    (y, Box::new(Pea { x: x as f32 - 25. })),
-                    (y + 1, Box::new(Pea { x: x as f32 - 25. })),
+                    (
+                        y - 1,
+                        Box::new(Pea {
+                            x: x as f32 - 25.,
+                            damage_type: DamageType::Normal,
+                        }),
+                    ),
+                    (
+                        y,
+                        Box::new(Pea {
+                            x: x as f32 - 25.,
+                            damage_type: DamageType::Normal,
+                        }),
+                    ),
+                    (
+                        y + 1,
+                        Box::new(Pea {
+                            x: x as f32 - 25.,
+                            damage_type: DamageType::Normal,
+                        }),
+                    ),
                 ];
             }
         }

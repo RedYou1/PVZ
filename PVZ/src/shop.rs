@@ -4,7 +4,8 @@ use sdl2::{
 
 use crate::{
     level::LevelConfig,
-    plant::{Plant, PlantFireSimple, PlantIceSimple, PlantSimple, PlantTriple},
+    plant::{PeaShooter, Plant, PlantTriple},
+    projectile::DamageType,
     textures::draw_string,
 };
 
@@ -18,9 +19,9 @@ impl Shop {
     pub fn new(money: u32) -> Self {
         Shop {
             plants: vec![
-                Box::new(PlantSimple::default()),
-                Box::new(PlantIceSimple::default()),
-                Box::new(PlantFireSimple::default()),
+                Box::new(PeaShooter::new(DamageType::Normal)),
+                Box::new(PeaShooter::new(DamageType::Ice)),
+                Box::new(PeaShooter::new(DamageType::Fire)),
                 Box::new(PlantTriple::default()),
             ],
             dragging: None,

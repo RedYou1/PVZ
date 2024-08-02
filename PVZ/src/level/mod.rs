@@ -1,13 +1,14 @@
+use rand::Rng;
+use sdl2::{
+    event::Event, keyboard::Keycode, pixels::Color, rect::Rect, render::Canvas, video::Window,
+};
 use std::{
     fs,
     io::{self},
     time::Duration,
 };
 
-use rand::Rng;
-use sdl2::{
-    event::Event, keyboard::Keycode, pixels::Color, rect::Rect, render::Canvas, video::Window,
-};
+mod draws;
 
 use crate::{
     plant::Plant,
@@ -48,7 +49,7 @@ impl Level {
 
     pub fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
         canvas.copy(
-            textures::maps(self.config.map.into()),
+            &textures::textures().maps[self.config.map as usize],
             Some(Rect::new(
                 if self.showing_zombies { 238 } else { 0 },
                 0,
@@ -70,54 +71,9 @@ impl Level {
             }
             return Ok(());
         }
-        for (y, ps) in self.plants.iter().enumerate() {
-            for (x, p) in ps.iter().enumerate() {
-                if let Some(p) = p {
-                    canvas.copy(
-                        p.texture(),
-                        None,
-                        Rect::new(
-                            self.config.pos_to_coord_x(x) + 5,
-                            self.config.pos_to_coord_y(y) + 5,
-                            self.config.col_width() - 10,
-                            self.config.row_heigth() - 10,
-                        ),
-                    )?;
-                }
-            }
-        }
-        for (y, zs) in self.zombies.iter().enumerate() {
-            let mut zs: Vec<&dyn Zombie> = zs.iter().map(|z| z.as_ref()).collect();
-            zs.sort_by(|&z1, &z2| z2.pos().total_cmp(&z1.pos()));
-            for z in zs {
-                canvas.copy(
-                    z.texture(),
-                    None,
-                    Rect::new(
-                        1280 - (z.pos() * 1280.).floor() as i32,
-                        self.config.pos_to_coord_y(y) + self.config.row_heigth() as i32
-                            - z.height() as i32,
-                        z.width().into(),
-                        z.height().into(),
-                    ),
-                )?;
-            }
-        }
-        for (y, projs) in self.projectiles.iter().enumerate() {
-            for proj in projs {
-                canvas.copy(
-                    proj.texture(),
-                    None,
-                    Rect::new(
-                        proj.x(),
-                        self.config.pos_to_coord_y(y) + self.config.row_heigth() as i32 / 2
-                            - proj.height() as i32 / 2,
-                        proj.width().into(),
-                        proj.height().into(),
-                    ),
-                )?;
-            }
-        }
+        self.draw_plants(canvas)?;
+        self.draw_zombies(canvas)?;
+        self.draw_projectiles(canvas)?;
         if !self.showing_zombies {
             self.shop.draw(canvas, &self.config)?;
         }
@@ -184,19 +140,7 @@ impl Level {
             }
         }
 
-        for (y, ps) in self.plants.iter_mut().enumerate() {
-            for (x, plant) in ps.iter_mut().enumerate() {
-                if let Some(plant) = plant {
-                    for (y, proj) in plant.should_spawn(
-                        self.config.pos_to_coord_x(x) + plant.width() as i32 / 2,
-                        y,
-                        self.config.rows as usize - 1,
-                    ) {
-                        self.projectiles[y].push(proj);
-                    }
-                }
-            }
-        }
+        self.spawn_projectiles();
 
         if !self.showing_zombies && !self.config.wait.is_empty() {
             if let Some(&f) = self.config.wait.first() {
@@ -222,6 +166,22 @@ impl Level {
         }
 
         Ok(())
+    }
+
+    fn spawn_projectiles(&mut self) {
+        for (y, ps) in self.plants.iter_mut().enumerate() {
+            for (x, plant) in ps.iter_mut().enumerate() {
+                if let Some(plant) = plant {
+                    for (y, proj) in plant.should_spawn(
+                        self.config.pos_to_coord_x(x) + plant.width() as i32 / 2,
+                        y,
+                        self.config.rows as usize - 1,
+                    ) {
+                        self.projectiles[y].push(proj);
+                    }
+                }
+            }
+        }
     }
 
     fn do_damage_to_zombies(

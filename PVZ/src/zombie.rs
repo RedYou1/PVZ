@@ -45,17 +45,17 @@ impl Entity for ZombieBase {
     fn texture(&self) -> &'static Texture<'static> {
         if self.freeze.is_zero() {
             match self.health {
-                ZombieBaseHealth::MissingHead => textures::zombie_simple_1(),
-                ZombieBaseHealth::Normal => textures::zombie_simple(),
-                ZombieBaseHealth::HalfCone => textures::zombie_cone_1(),
-                ZombieBaseHealth::Cone => textures::zombie_cone(),
+                ZombieBaseHealth::MissingHead => &textures::textures().zombie_simple_1,
+                ZombieBaseHealth::Normal => &textures::textures().zombie_simple,
+                ZombieBaseHealth::HalfCone => &textures::textures().zombie_cone_1,
+                ZombieBaseHealth::Cone => &textures::textures().zombie_cone,
             }
         } else {
             match self.health {
-                ZombieBaseHealth::MissingHead => textures::zombie_freeze_simple_1(),
-                ZombieBaseHealth::Normal => textures::zombie_freeze_simple(),
-                ZombieBaseHealth::HalfCone => textures::zombie_freeze_cone_1(),
-                ZombieBaseHealth::Cone => textures::zombie_freeze_cone(),
+                ZombieBaseHealth::MissingHead => &textures::textures().zombie_freeze_simple_1,
+                ZombieBaseHealth::Normal => &textures::textures().zombie_freeze_simple,
+                ZombieBaseHealth::HalfCone => &textures::textures().zombie_freeze_cone_1,
+                ZombieBaseHealth::Cone => &textures::textures().zombie_freeze_cone,
             }
         }
     }

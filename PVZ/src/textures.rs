@@ -12,103 +12,30 @@ thread_local! {
     pub static TEXTURES: Cell<Option<&'static Textures>> = const { Cell::new(None) };
 }
 
-struct Textures {
-    maps: Vec<Texture<'static>>,
-    plant_simple: Texture<'static>,
-    plant_fire_simple: Texture<'static>,
-    plant_ice_simple: Texture<'static>,
-    plant_triple: Texture<'static>,
-    zombie_simple: Texture<'static>,
-    zombie_simple_1: Texture<'static>,
-    zombie_cone: Texture<'static>,
-    zombie_cone_1: Texture<'static>,
-    zombie_freeze_simple: Texture<'static>,
-    zombie_freeze_simple_1: Texture<'static>,
-    zombie_freeze_cone: Texture<'static>,
-    zombie_freeze_cone_1: Texture<'static>,
-    pea: Texture<'static>,
-    fire_pea: Texture<'static>,
-    ice_pea: Texture<'static>,
+pub struct Textures {
+    pub maps: Vec<Texture<'static>>,
+    pub plant_simple: Texture<'static>,
+    pub plant_fire_simple: Texture<'static>,
+    pub plant_ice_simple: Texture<'static>,
+    pub plant_triple: Texture<'static>,
+    pub zombie_simple: Texture<'static>,
+    pub zombie_simple_1: Texture<'static>,
+    pub zombie_cone: Texture<'static>,
+    pub zombie_cone_1: Texture<'static>,
+    pub zombie_freeze_simple: Texture<'static>,
+    pub zombie_freeze_simple_1: Texture<'static>,
+    pub zombie_freeze_cone: Texture<'static>,
+    pub zombie_freeze_cone_1: Texture<'static>,
+    pub pea: Texture<'static>,
+    pub fire_pea: Texture<'static>,
+    pub ice_pea: Texture<'static>,
 
-    //font_context: &'static Sdl2TtfContext,
-    font: Font<'static, 'static>,
+    //pub font_context: &'static Sdl2TtfContext,
+    pub font: Font<'static, 'static>,
 }
 
-pub fn plant_simple() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").plant_simple
-}
-
-pub fn plant_fire_simple() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").plant_fire_simple
-}
-
-pub fn plant_ice_simple() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").plant_ice_simple
-}
-
-pub fn plant_triple() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").plant_triple
-}
-
-pub fn zombie_simple() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").zombie_simple
-}
-
-pub fn zombie_simple_1() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").zombie_simple_1
-}
-
-pub fn zombie_cone() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").zombie_cone
-}
-
-pub fn zombie_cone_1() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").zombie_cone_1
-}
-
-pub fn zombie_freeze_simple() -> &'static Texture<'static> {
-    &TEXTURES
-        .get()
-        .expect("Not main thread")
-        .zombie_freeze_simple
-}
-
-pub fn zombie_freeze_simple_1() -> &'static Texture<'static> {
-    &TEXTURES
-        .get()
-        .expect("Not main thread")
-        .zombie_freeze_simple_1
-}
-
-pub fn zombie_freeze_cone() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").zombie_freeze_cone
-}
-
-pub fn zombie_freeze_cone_1() -> &'static Texture<'static> {
-    &TEXTURES
-        .get()
-        .expect("Not main thread")
-        .zombie_freeze_cone_1
-}
-
-pub fn pea() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").pea
-}
-
-pub fn fire_pea() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").fire_pea
-}
-
-pub fn ice_pea() -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").ice_pea
-}
-
-pub fn maps(i: usize) -> &'static Texture<'static> {
-    &TEXTURES.get().expect("Not main thread").maps[i]
-}
-
-pub fn font() -> &'static Font<'static, 'static> {
-    &TEXTURES.get().expect("Not main thread").font
+pub fn textures() -> &'static Textures {
+    TEXTURES.get().expect("Not main thread")
 }
 
 pub fn draw_string(
@@ -121,7 +48,8 @@ pub fn draw_string(
         &canvas
             .texture_creator()
             .create_texture_from_surface(
-                font()
+                textures()
+                    .font
                     .render(text)
                     .blended(color)
                     .map_err(|e| e.to_string())?,
