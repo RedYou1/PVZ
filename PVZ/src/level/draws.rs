@@ -1,14 +1,27 @@
 use sdl2::{rect::Rect, render::Canvas, video::Window};
 
-use crate::zombie::Zombie;
+use crate::{entity::Entity, plants::nenuphar::Nenuphar, zombie::Zombie};
 
-use super::Level;
+use super::{config::RowType, Level};
 
 impl Level {
     pub fn draw_plants(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
         for (y, ps) in self.plants.iter().enumerate() {
             for (x, p) in ps.iter().enumerate() {
                 if let Some(p) = p {
+                    if !p.can_go_in_water() && self.config.rows[y] == RowType::Water {
+                        let p = Nenuphar::new();
+                        canvas.copy(
+                            p.texture(),
+                            None,
+                            Rect::new(
+                                self.config.pos_to_coord_x(x) + 5,
+                                self.config.pos_to_coord_y(y) + 5,
+                                self.config.col_width() - 10,
+                                self.config.row_heigth() - 10,
+                            ),
+                        )?;
+                    }
                     canvas.copy(
                         p.texture(),
                         None,
@@ -61,6 +74,16 @@ impl Level {
                     ),
                 )?;
             }
+        }
+        Ok(())
+    }
+    pub fn draw_suns(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+        for sun in self.suns.iter() {
+            canvas.copy(
+                sun.texture(),
+                None,
+                Rect::new(sun.x, sun.y, sun.width().into(), sun.height().into()),
+            )?;
         }
         Ok(())
     }

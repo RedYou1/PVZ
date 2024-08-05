@@ -1,25 +1,27 @@
+use config::{LevelConfig, RowType};
 use rand::Rng;
 use sdl2::{
     event::Event, keyboard::Keycode, pixels::Color, rect::Rect, render::Canvas, video::Window,
 };
-use std::{
-    fs,
-    io::{self},
-    time::Duration,
-};
+use std::time::Duration;
 
+pub mod config;
 mod draws;
 
 use crate::{
-    plant::Plant,
+    entity::Entity,
+    plants::{nenuphar::Nenuphar, Plant},
     projectile::{DamageType, Projectile},
     shop::Shop,
+    sun::Sun,
     textures::{self, draw_string},
     zombie::{zombie_from_id, Zombie},
 };
 
 pub struct Level {
     pub showing_zombies: bool,
+    pub suns: Vec<Sun>,
+    pub next_sun: Duration,
     pub plants: Vec<Vec<Option<Box<dyn Plant>>>>,
     pub zombies: Vec<Vec<Box<dyn Zombie>>>,
     pub projectiles: Vec<Vec<Box<dyn Projectile>>>,
@@ -30,12 +32,42 @@ pub struct Level {
 
 impl Level {
     pub fn event(&mut self, canvas: &mut Canvas<Window>, event: Event) -> Result<(), String> {
+        let (width, height) = canvas.output_size()?;
+        let scale_x = |x: i32| x as f32 * 1280. / width as f32;
+        let scale_y = |y: i32| y as f32 * 720. / height as f32;
+
         if let Event::KeyDown {
             keycode: Some(Keycode::Space),
             ..
         } = event
         {
             self.showing_zombies = false;
+        }
+
+        if let Event::MouseMotion { x, y, .. } = event {
+            let x = scale_x(x) as i32;
+            let y = scale_y(y) as i32;
+            for i in self
+                .suns
+                .iter()
+                .enumerate()
+                .filter_map(|(i, sun)| {
+                    if sun.x <= x
+                        && sun.x + sun.width() as i32 >= x
+                        && sun.y <= y
+                        && sun.y + sun.height() as i32 >= y
+                    {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                })
+                .rev()
+                .collect::<Vec<usize>>()
+            {
+                self.shop.money += 25;
+                self.suns.remove(i);
+            }
         }
 
         if let Some((x, y, plant)) =
@@ -77,6 +109,7 @@ impl Level {
         if !self.showing_zombies {
             self.shop.draw(canvas, &self.config)?;
         }
+        self.draw_suns(canvas)?;
         if let Some(end) = self.end {
             draw_string(
                 canvas,
@@ -101,10 +134,18 @@ impl Level {
             p.update(!self.showing_zombies, elapsed)?;
         }
 
-        for z in self.zombies.iter_mut().flatten() {
-            z.update(!self.showing_zombies, elapsed)?;
-            if z.pos() >= 1. - self.config.left as f32 / 1280. + z.width() as f32 / 1280. {
-                self.end = Some(false);
+        for y in 0..self.zombies.len() {
+            for i in 0..self.zombies[y].len() {
+                let prev_pos = self.zombies[y][i].pos();
+                self.zombies[y][i].update(!self.showing_zombies, elapsed)?;
+                if self.zombies[y][i].pos()
+                    >= 1. - self.config.left as f32 / 1280.
+                        + self.zombies[y][i].width() as f32 / 1280.
+                {
+                    self.end = Some(false);
+                } else {
+                    self.do_damage_to_plant(prev_pos, y, i, elapsed);
+                }
             }
         }
         if let Some(false) = self.end {
@@ -123,8 +164,13 @@ impl Level {
                     continue;
                 }
 
-                let mut zombie_to_remove =
-                    self.do_damage_to_zombies(y, proj.x(), proj.width() as i32, proj.damage_type());
+                let mut zombie_to_remove = self.do_damage_to_zombies(
+                    y,
+                    proj.x(),
+                    proj.width() as i32,
+                    proj.damage_amount(),
+                    proj.damage_type(),
+                );
                 if zombie_to_remove.0 {
                     indx.insert(0, i);
                 }
@@ -140,6 +186,17 @@ impl Level {
             }
         }
 
+        for sun in self.suns.iter_mut() {
+            sun.update(!self.showing_zombies, elapsed)?;
+        }
+        if self.next_sun > elapsed {
+            self.next_sun -= elapsed
+        } else {
+            self.next_sun = Duration::new(5, 0) - elapsed + self.next_sun;
+            self.suns
+                .push(Sun::new(rand::thread_rng().gen_range(0..1220), 40));
+        }
+
         self.spawn_projectiles();
 
         if !self.showing_zombies && !self.config.wait.is_empty() {
@@ -149,11 +206,11 @@ impl Level {
                     self.config.wait.remove(0);
                     let mut z = self.config.zombies.remove(0);
                     let mut rng = rand::thread_rng();
-                    let mut offsets: Vec<f32> = (0..self.config.rows).map(|_| 0.).collect();
+                    let mut offsets: Vec<f32> = (0..self.config.rows.len()).map(|_| 0.).collect();
                     while !z.is_empty() {
                         let i = rng.gen_range(0..z.len());
                         let mut z = zombie_from_id(z.remove(i).0);
-                        let i = rng.gen_range(0..self.config.rows) as usize;
+                        let i = rng.gen_range(0..self.config.rows.len()) as usize;
                         z.set_pos(offsets[i]);
                         offsets[i] -= 0.006;
                         self.zombies[i].push(z);
@@ -168,15 +225,50 @@ impl Level {
         Ok(())
     }
 
+    fn do_damage_to_plant(&mut self, prev_pos: f32, y: usize, i: usize, elapsed: Duration) {
+        let z = self.zombies[y][i].as_mut();
+        if let Some(x) = self
+            .config
+            .coord_to_pos_x((1280. - prev_pos * 1280.) as i32)
+        {
+            if let Some(plant) = self.plants[y][x].as_mut() {
+                z.set_pos(prev_pos);
+                let diff = elapsed.as_secs_f32() * if z.freezed() { 0.5 } else { 1. };
+                if plant.health().as_secs_f32() < diff {
+                    self.plants[y][x] =
+                        if self.config.rows[y] == RowType::Water && !plant.is_nenuphar() {
+                            Some(Box::new(Nenuphar::new()))
+                        } else {
+                            None
+                        }
+                } else {
+                    *plant.health() -= Duration::from_secs_f32(diff);
+                }
+            }
+        } else if let Some(x) = self.config.coord_to_pos_x((1280. - z.pos() * 1280.) as i32) {
+            if let Some(p) = self.plants[y][x].as_ref() {
+                let pos =
+                    (self.config.pos_to_coord_x(x) as f32 + p.width() as f32 - 1280.) / -1280.;
+                if z.pos() > pos {
+                    z.set_pos(pos);
+                }
+            }
+        }
+    }
+
     fn spawn_projectiles(&mut self) {
         for (y, ps) in self.plants.iter_mut().enumerate() {
             for (x, plant) in ps.iter_mut().enumerate() {
                 if let Some(plant) = plant {
-                    for (y, proj) in plant.should_spawn(
+                    let mut spawns = plant.should_spawn(
                         self.config.pos_to_coord_x(x) + plant.width() as i32 / 2,
+                        self.config.pos_to_coord_y(y),
                         y,
-                        self.config.rows as usize - 1,
-                    ) {
+                        self.config.rows.len() - 1,
+                        &self.zombies,
+                    );
+                    self.suns.append(&mut spawns.0);
+                    for (y, proj) in spawns.1 {
                         self.projectiles[y].push(proj);
                     }
                 }
@@ -189,7 +281,8 @@ impl Level {
         y: usize,
         proj_x: i32,
         proj_width: i32,
-        proj_damage: DamageType,
+        proj_damage: usize,
+        proj_type: DamageType,
     ) -> (bool, Vec<usize>) {
         let mut zombies = self.zombies[y]
             .iter_mut()
@@ -205,7 +298,7 @@ impl Level {
             .collect::<Vec<(usize, f32)>>();
         zombies.sort_by(|(_, pos1), (_, pos2)| pos2.total_cmp(pos1));
         if let Some(&(iz, _)) = zombies.first() {
-            (true, self.hit_zombie(y, iz, proj_damage, false))
+            (true, self.hit_zombie(y, iz, proj_damage, proj_type, false))
         } else {
             (false, Vec::new())
         }
@@ -215,22 +308,28 @@ impl Level {
         &mut self,
         y: usize,
         zombie_index: usize,
+        damage_amount: usize,
         damage_type: DamageType,
         propagated: bool,
     ) -> Vec<usize> {
-        let hit = self.zombies[y][zombie_index].hit(damage_type, propagated);
+        let hit = self.zombies[y][zombie_index].hit(damage_amount, damage_type, propagated);
         let mut to_remove = Vec::new();
         if hit.0 {
-            self.shop.money += 1;
             to_remove.push(zombie_index)
         }
         if hit.1 && !propagated {
-            to_remove.extend(self.propagate(y, zombie_index, damage_type));
+            to_remove.extend(self.propagate(y, zombie_index, damage_amount, damage_type));
         }
         to_remove
     }
 
-    fn propagate(&mut self, y: usize, zombie_index: usize, damage_type: DamageType) -> Vec<usize> {
+    fn propagate(
+        &mut self,
+        y: usize,
+        zombie_index: usize,
+        damage_amount: usize,
+        damage_type: DamageType,
+    ) -> Vec<usize> {
         let size = {
             let oz = self.zombies[y][zombie_index].as_ref();
             let zx = 1280 - (oz.pos() * 1280.).floor() as i32 + oz.hit_box().0 as i32;
@@ -251,152 +350,15 @@ impl Level {
             .collect::<Vec<usize>>()
         {
             if zombie_index != zombie_index2 {
-                to_remove.extend(self.hit_zombie(y, zombie_index2, damage_type, true));
+                to_remove.extend(self.hit_zombie(
+                    y,
+                    zombie_index2,
+                    damage_amount,
+                    damage_type,
+                    true,
+                ));
             }
         }
         to_remove
-    }
-
-    #[allow(clippy::unwrap_in_result)]
-    pub fn load_config(path: &str) -> std::io::Result<Self> {
-        let mut data = fs::read(path)?;
-
-        let map = data.remove(0);
-
-        let mut data2 = fs::read(format!("assets/maps/{map}.data"))?;
-        let top = u16::from_le_bytes([data2.remove(0), data2.remove(0)]);
-        let left = u16::from_le_bytes([data2.remove(0), data2.remove(0)]);
-        let width = u16::from_le_bytes([data2.remove(0), data2.remove(0)]);
-        let height = u16::from_le_bytes([data2.remove(0), data2.remove(0)]);
-        let rows = data2.remove(0);
-        let cols = data2.remove(0);
-
-        let money = u32::from_le_bytes([
-            data.remove(0),
-            data.remove(0),
-            data.remove(0),
-            data.remove(0),
-        ]);
-        let waves = data.remove(0).into();
-
-        let wait = data
-            .chunks_exact(8)
-            .take(waves)
-            .map(|bytes| {
-                Duration::from_millis(u64::from_le_bytes(bytes.try_into().expect("chunk")))
-            })
-            .collect();
-        data.drain(0..waves * 8);
-
-        let mut rng = rand::thread_rng();
-        let z_rng_x1 = left + width - 305;
-        let z_rng_y1 = top + height / rows as u16;
-        let z_rng_y2 = top + height;
-        let zombies = (0..waves)
-            .map(|_| {
-                let types = data.remove(0).into();
-
-                let zombies = data
-                    .chunks_exact(2)
-                    .take(types)
-                    .flat_map(|bytes| {
-                        let z = zombie_from_id(bytes[0]);
-                        (0..bytes[1])
-                            .map(|_| {
-                                (
-                                    bytes[0],
-                                    rng.gen_range((z_rng_x1 as i32)..(1280 - z.width() as i32)),
-                                    rng.gen_range(
-                                        (z_rng_y1 as i32 - z.height() as i32)
-                                            ..(z_rng_y2 as i32 - z.height() as i32),
-                                    ),
-                                )
-                            })
-                            .collect::<Vec<(u8, i32, i32)>>()
-                    })
-                    .collect();
-
-                data.drain(0..types * 2);
-
-                zombies
-            })
-            .collect();
-
-        if !data.is_empty() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Wrong format".to_owned(),
-            ));
-        }
-
-        Ok(Self {
-            showing_zombies: true,
-            plants: (0..rows)
-                .map(|_| (0..cols).map(|_| None).collect())
-                .collect(),
-            zombies: (0..rows).map(|_| Vec::with_capacity(16)).collect(),
-            projectiles: (0..rows).map(|_| Vec::with_capacity(4)).collect(),
-            config: LevelConfig {
-                map,
-                top,
-                left,
-                width,
-                height,
-                rows,
-                cols,
-                wait,
-                zombies,
-            },
-            shop: Shop::new(money),
-            end: None,
-        })
-    }
-}
-
-pub struct LevelConfig {
-    map: u8,
-
-    top: u16,
-    left: u16,
-    width: u16,
-    height: u16,
-
-    rows: u8,
-    cols: u8,
-
-    wait: Vec<Duration>,
-    #[allow(clippy::type_complexity)]
-    zombies: Vec<Vec<(u8, i32, i32)>>,
-}
-
-impl LevelConfig {
-    pub const fn coord_to_pos_x(&self, x: i32) -> Option<usize> {
-        if x < self.left as i32 || x > self.left as i32 + self.width as i32 {
-            None
-        } else {
-            Some((x as usize - self.left as usize) * self.cols as usize / self.width as usize)
-        }
-    }
-    pub const fn coord_to_pos_y(&self, y: i32) -> Option<usize> {
-        if y < self.top as i32 || y > self.top as i32 + self.height as i32 {
-            None
-        } else {
-            Some((y as usize - self.top as usize) * self.rows as usize / self.height as usize)
-        }
-    }
-
-    pub const fn pos_to_coord_x(&self, x: usize) -> i32 {
-        x as i32 * self.width as i32 / self.cols as i32 + self.left as i32
-    }
-    pub const fn pos_to_coord_y(&self, y: usize) -> i32 {
-        y as i32 * self.height as i32 / self.rows as i32 + self.top as i32
-    }
-
-    pub const fn row_heigth(&self) -> u32 {
-        self.height as u32 / self.rows as u32
-    }
-
-    pub const fn col_width(&self) -> u32 {
-        self.width as u32 / self.cols as u32
     }
 }

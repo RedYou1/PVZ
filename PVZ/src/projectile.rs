@@ -12,6 +12,7 @@ pub enum DamageType {
 pub trait Projectile: Entity {
     fn x(&self) -> i32;
     fn to_remove(&self) -> bool;
+    fn damage_amount(&self) -> usize;
     fn damage_type(&self) -> DamageType;
 }
 
@@ -47,6 +48,10 @@ impl Entity for Pea {
 impl Projectile for Pea {
     fn x(&self) -> i32 {
         self.x.floor() as i32
+    }
+
+    fn damage_amount(&self) -> usize {
+        20
     }
 
     fn damage_type(&self) -> DamageType {

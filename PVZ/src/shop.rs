@@ -3,8 +3,11 @@ use sdl2::{
 };
 
 use crate::{
-    level::LevelConfig,
-    plant::{PeaShooter, Plant, PlantTriple},
+    level::config::{LevelConfig, RowType},
+    plants::{
+        nenuphar::Nenuphar, peashooter::PeaShooter, sunflower::Sunflower,
+        triple_peashooter::PlantTriple, Plant,
+    },
     projectile::DamageType,
     textures::draw_string,
 };
@@ -19,10 +22,12 @@ impl Shop {
     pub fn new(money: u32) -> Self {
         Shop {
             plants: vec![
+                Box::new(Nenuphar::new()),
+                Box::new(Sunflower::new()),
                 Box::new(PeaShooter::new(DamageType::Normal)),
                 Box::new(PeaShooter::new(DamageType::Ice)),
                 Box::new(PeaShooter::new(DamageType::Fire)),
-                Box::new(PlantTriple::default()),
+                Box::new(PlantTriple::new()),
             ],
             dragging: None,
             money,
@@ -53,9 +58,26 @@ impl Shop {
                     if self.money >= plant.cost() {
                         if let Some(x) = config.coord_to_pos_x(scale_x(x) as i32) {
                             if let Some(y) = config.coord_to_pos_y(scale_y(y) as i32) {
-                                if plants[y][x].is_none() {
-                                    self.money -= plant.cost();
-                                    ret = Some((x, y, plant.as_ref().clone()));
+                                match config.rows[y] {
+                                    RowType::Grass => {
+                                        if !plant.is_nenuphar() && plants[y][x].is_none() {
+                                            self.money -= plant.cost();
+                                            ret = Some((x, y, plant.as_ref().clone()));
+                                        }
+                                    }
+                                    RowType::Water => {
+                                        if plant.can_go_in_water() {
+                                            if plants[y][x].is_none() {
+                                                self.money -= plant.cost();
+                                                ret = Some((x, y, plant.as_ref().clone()));
+                                            }
+                                        } else if let Some(p) = plants[y][x].as_ref() {
+                                            if p.is_nenuphar() {
+                                                self.money -= plant.cost();
+                                                ret = Some((x, y, plant.as_ref().clone()));
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -112,6 +134,12 @@ impl Shop {
                 plant.texture(),
                 None,
                 Rect::new(i as i32 * 97 + 10, 10, 80, 106),
+            )?;
+            draw_string(
+                canvas,
+                Rect::new(i as i32 * 97 + 10, 86, 80, 30),
+                format!("{}$", plant.cost()).as_str(),
+                Color::RGB(255, 255, 255),
             )?;
         }
         if let Some((x, y, plant)) = self.dragging.as_ref() {

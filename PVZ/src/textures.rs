@@ -14,10 +14,13 @@ thread_local! {
 
 pub struct Textures {
     pub maps: Vec<Texture<'static>>,
+    pub sun: Texture<'static>,
+    pub plant_sunflower: Texture<'static>,
     pub plant_simple: Texture<'static>,
     pub plant_fire_simple: Texture<'static>,
     pub plant_ice_simple: Texture<'static>,
     pub plant_triple: Texture<'static>,
+    pub plant_nenuphar: Texture<'static>,
     pub zombie_simple: Texture<'static>,
     pub zombie_simple_1: Texture<'static>,
     pub zombie_cone: Texture<'static>,
@@ -112,6 +115,8 @@ pub fn load_textures(
 
     TEXTURES.set(Some(Box::leak(Box::new(Textures {
         maps,
+        sun: texture_creator.load_texture("assets/Sun.png")?,
+        plant_sunflower: texture_creator.load_texture("assets/Plants/Sunflower.png")?,
         pea: texture_creator.load_texture("assets/Plants/Pea.png")?,
         fire_pea: texture_creator.load_texture("assets/Plants/Fire Pea.png")?,
         ice_pea: texture_creator.load_texture("assets/Plants/Ice Pea.png")?,
@@ -119,6 +124,7 @@ pub fn load_textures(
         plant_fire_simple: texture_creator.load_texture("assets/Plants/Fire Simple.png")?,
         plant_ice_simple: texture_creator.load_texture("assets/Plants/Ice Simple.png")?,
         plant_triple: texture_creator.load_texture("assets/Plants/Triple.png")?,
+        plant_nenuphar: texture_creator.load_texture("assets/Plants/Nenuphar.png")?,
         zombie_simple,
         zombie_simple_1,
         zombie_cone,

@@ -12,7 +12,7 @@ use sdl2::{
 };
 
 use crate::{
-    level::Level,
+    level::{config::LevelConfig, Level},
     textures::{draw_string, load_textures},
 };
 
@@ -123,7 +123,7 @@ impl GameWindow for Win {
                         let y = y.floor() as u8;
                         if (0..self.levels_count).contains(&y) {
                             self.level = Some(
-                                Level::load_config(format!("levels/{y}.data").as_str())
+                                LevelConfig::load_config(format!("levels/{y}.data").as_str())
                                     .map_err(|e| e.to_string())?,
                             );
                         }
