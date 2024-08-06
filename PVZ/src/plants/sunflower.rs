@@ -69,7 +69,7 @@ impl Plant for Sunflower {
     ) -> (Vec<Sun>, Vec<(usize, Box<dyn Projectile>)>) {
         if self.charge >= Duration::from_millis(24000) {
             self.charge -= Duration::from_millis(24000);
-            return (vec![Sun::new(x, y)], Vec::new());
+            return (vec![Sun::new(x, y as f32 - 50., y as f32 + 50.)], Vec::new());
         }
         (Vec::new(), Vec::new())
     }

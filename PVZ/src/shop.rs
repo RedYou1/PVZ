@@ -38,15 +38,14 @@ impl Shop {
     pub fn event(
         &mut self,
         config: &LevelConfig,
-        plants: &[Vec<Option<Box<dyn Plant>>>],
+        plants: &mut [Vec<Option<Box<dyn Plant>>>],
         canvas: &mut Canvas<Window>,
         event: Event,
-    ) -> Result<Option<(usize, usize, Box<dyn Plant>)>, String> {
+    ) -> Result<(), String> {
         let (width, height) = canvas.output_size()?;
         let scale_x = |x: i32| x as f32 * 1280. / width as f32;
         let scale_y = |y: i32| y as f32 * 720. / height as f32;
 
-        let mut ret = None;
         match event {
             Event::MouseButtonUp {
                 mouse_btn: MouseButton::Left,
@@ -54,36 +53,9 @@ impl Shop {
                 y,
                 ..
             } => {
-                if let Some((_, _, plant)) = self.dragging.as_ref() {
-                    if self.money >= plant.cost() {
-                        if let Some(x) = config.coord_to_pos_x(scale_x(x) as i32) {
-                            if let Some(y) = config.coord_to_pos_y(scale_y(y) as i32) {
-                                match config.rows[y] {
-                                    RowType::Grass => {
-                                        if !plant.is_nenuphar() && plants[y][x].is_none() {
-                                            self.money -= plant.cost();
-                                            ret = Some((x, y, plant.as_ref().clone()));
-                                        }
-                                    }
-                                    RowType::Water => {
-                                        if plant.can_go_in_water() {
-                                            if plants[y][x].is_none() {
-                                                self.money -= plant.cost();
-                                                ret = Some((x, y, plant.as_ref().clone()));
-                                            }
-                                        } else if let Some(p) = plants[y][x].as_ref() {
-                                            if p.is_nenuphar() {
-                                                self.money -= plant.cost();
-                                                ret = Some((x, y, plant.as_ref().clone()));
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    self.dragging = None;
-                }
+                let x = scale_x(x) as i32;
+                let y = scale_y(y) as i32;
+                self.drop_plant(config, x, y, plants);
             }
             Event::MouseButtonDown {
                 mouse_btn: MouseButton::Left,
@@ -123,7 +95,46 @@ impl Shop {
             }
             _ => {}
         }
-        Ok(ret)
+        Ok(())
+    }
+
+    fn drop_plant(
+        &mut self,
+        config: &LevelConfig,
+        x: i32,
+        y: i32,
+        plants: &mut [Vec<Option<Box<dyn Plant>>>],
+    ) {
+        if let Some((_, _, plant)) = self.dragging.as_ref() {
+            if self.money >= plant.cost() {
+                if let Some(x) = config.coord_to_pos_x(x) {
+                    if let Some(y) = config.coord_to_pos_y(y) {
+                        match config.rows[y] {
+                            RowType::Grass => {
+                                if !plant.is_nenuphar() && plants[y][x].is_none() {
+                                    self.money -= plant.cost();
+                                    plants[y][x] = Some(plant.as_ref().clone());
+                                }
+                            }
+                            RowType::Water => {
+                                if plant.can_go_in_water() {
+                                    if plants[y][x].is_none() {
+                                        self.money -= plant.cost();
+                                        plants[y][x] = Some(plant.as_ref().clone());
+                                    }
+                                } else if let Some(p) = plants[y][x].as_mut() {
+                                    if p.is_nenuphar() {
+                                        self.money -= plant.cost();
+                                        *p = plant.as_ref().clone();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            self.dragging = None;
+        }
     }
 
     pub fn draw(&self, canvas: &mut Canvas<Window>, config: &LevelConfig) -> Result<(), String> {
@@ -139,7 +150,6 @@ impl Shop {
                 canvas,
                 Rect::new(i as i32 * 97 + 10, 86, 80, 30),
                 format!("{}$", plant.cost()).as_str(),
-                Color::RGB(255, 255, 255),
             )?;
         }
         if let Some((x, y, plant)) = self.dragging.as_ref() {
@@ -158,7 +168,6 @@ impl Shop {
             canvas,
             Rect::new(self.plants.len() as i32 * 97 + 10, 42, 80, 106),
             format!("{}$", self.money).as_str(),
-            Color::RGB(255, 255, 255),
         )
     }
 }

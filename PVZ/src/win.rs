@@ -71,12 +71,7 @@ impl GameWindow for Win {
                 keycode: Some(Keycode::F11),
                 ..
             } => {
-                let window = canvas.window_mut();
-                window.set_fullscreen(if window.fullscreen_state() == FullscreenType::Off {
-                    FullscreenType::Desktop
-                } else {
-                    FullscreenType::Off
-                })?;
+                change_full_screen(canvas)?;
             }
             Event::MouseButtonUp {
                 mouse_btn: MouseButton::Left,
@@ -89,14 +84,7 @@ impl GameWindow for Win {
                 if self.level.is_some() {
                     if self.pause && (565..=715).contains(&x) {
                         if (200..=240).contains(&y) {
-                            let window = canvas.window_mut();
-                            window.set_fullscreen(
-                                if window.fullscreen_state() == FullscreenType::Off {
-                                    FullscreenType::Desktop
-                                } else {
-                                    FullscreenType::Off
-                                },
-                            )?;
+                            change_full_screen(canvas)?;
                         } else if (260..=300).contains(&y) {
                             self.level = None;
                             self.pause = false;
@@ -106,14 +94,7 @@ impl GameWindow for Win {
                     }
                 } else if (485..=635).contains(&x) {
                     if (200..=240).contains(&y) {
-                        let window = canvas.window_mut();
-                        window.set_fullscreen(
-                            if window.fullscreen_state() == FullscreenType::Off {
-                                FullscreenType::Desktop
-                            } else {
-                                FullscreenType::Off
-                            },
-                        )?;
+                        change_full_screen(canvas)?;
                     } else if (260..=300).contains(&y) {
                         self.running = false;
                     }
@@ -122,10 +103,8 @@ impl GameWindow for Win {
                     if (y - y.floor()) <= 40. / 60. {
                         let y = y.floor() as u8;
                         if (0..self.levels_count).contains(&y) {
-                            self.level = Some(
-                                LevelConfig::load_config(format!("levels/{y}.data").as_str())
-                                    .map_err(|e| e.to_string())?,
-                            );
+                            self.level =
+                                Some(LevelConfig::load_config(y).map_err(|e| e.to_string())?);
                         }
                     }
                 }
@@ -133,16 +112,16 @@ impl GameWindow for Win {
             _ => {}
         }
         if let Some(level) = self.level.as_mut() {
-            level.event(canvas, event.clone())?;
+            level.event(canvas, event.clone(), &mut self.pause)?;
         }
         Ok(())
     }
 
     fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+        set_scale(canvas, 1., 1.)?;
         if let Some(level) = self.level.as_ref() {
             canvas.set_draw_color(Color::RGB(0, 0, 0));
             canvas.clear();
-            set_scale(canvas, 1., 1.)?;
 
             level.draw(canvas)?;
             if self.pause {
@@ -151,30 +130,14 @@ impl GameWindow for Win {
                 canvas.fill_rect(Rect::new(565, 260, 150, 40))?;
                 canvas.fill_rect(Rect::new(565, 320, 150, 40))?;
 
-                draw_string(
-                    canvas,
-                    Rect::new(575, 206, 130, 28),
-                    "Plein écran",
-                    Color::RGB(255, 255, 255),
-                )?;
-                draw_string(
-                    canvas,
-                    Rect::new(575, 266, 130, 28),
-                    "Retour",
-                    Color::RGB(255, 255, 255),
-                )?;
-                draw_string(
-                    canvas,
-                    Rect::new(575, 326, 130, 28),
-                    "Quitter",
-                    Color::RGB(255, 255, 255),
-                )?;
+                draw_string(canvas, Rect::new(575, 206, 130, 28), "Plein écran")?;
+                draw_string(canvas, Rect::new(575, 266, 130, 28), "Retour")?;
+                draw_string(canvas, Rect::new(575, 326, 130, 28), "Quitter")?;
             }
             return Ok(());
         }
         canvas.set_draw_color(Color::RGB(50, 50, 50));
         canvas.clear();
-        set_scale(canvas, 1., 1.)?;
 
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.fill_rect(Rect::new(485, 200, 150, 40))?;
@@ -183,29 +146,28 @@ impl GameWindow for Win {
             canvas.fill_rect(Rect::new(645, 200 + i as i32 * 60, 150, 40))?;
         }
 
-        draw_string(
-            canvas,
-            Rect::new(495, 206, 130, 28),
-            "Plein écran",
-            Color::RGB(255, 255, 255),
-        )?;
-        draw_string(
-            canvas,
-            Rect::new(495, 266, 130, 28),
-            "Quitter",
-            Color::RGB(255, 255, 255),
-        )?;
+        draw_string(canvas, Rect::new(495, 206, 130, 28), "Plein écran")?;
+        draw_string(canvas, Rect::new(495, 266, 130, 28), "Quitter")?;
 
         for i in 0..self.levels_count {
             draw_string(
                 canvas,
                 Rect::new(654, 206 + i as i32 * 60, 130, 28),
                 format!("{:0>3}", i + 1).as_str(),
-                Color::RGB(255, 255, 255),
             )?;
         }
         Ok(())
     }
+}
+
+fn change_full_screen(canvas: &mut Canvas<Window>) -> Result<(), String> {
+    let window = canvas.window_mut();
+    window.set_fullscreen(if window.fullscreen_state() == FullscreenType::Off {
+        FullscreenType::Desktop
+    } else {
+        FullscreenType::Off
+    })?;
+    Ok(())
 }
 
 pub fn set_scale(canvas: &mut Canvas<Window>, scale_x: f32, scale_y: f32) -> Result<(), String> {

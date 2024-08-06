@@ -41,12 +41,7 @@ pub fn textures() -> &'static Textures {
     TEXTURES.get().expect("Not main thread")
 }
 
-pub fn draw_string(
-    canvas: &mut Canvas<Window>,
-    to: Rect,
-    text: &str,
-    color: Color,
-) -> Result<(), String> {
+pub fn draw_string(canvas: &mut Canvas<Window>, to: Rect, text: &str) -> Result<(), String> {
     canvas.copy(
         &canvas
             .texture_creator()
@@ -54,7 +49,7 @@ pub fn draw_string(
                 textures()
                     .font
                     .render(text)
-                    .blended(color)
+                    .blended(Color::WHITE)
                     .map_err(|e| e.to_string())?,
             )
             .map_err(|e| e.to_string())?,

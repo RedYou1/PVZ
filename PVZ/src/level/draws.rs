@@ -7,12 +7,12 @@ use super::{config::RowType, Level};
 impl Level {
     pub fn draw_plants(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
         for (y, ps) in self.plants.iter().enumerate() {
-            for (x, p) in ps.iter().enumerate() {
-                if let Some(p) = p {
-                    if !p.can_go_in_water() && self.config.rows[y] == RowType::Water {
-                        let p = Nenuphar::new();
+            for (x, plant) in ps.iter().enumerate() {
+                if let Some(plant) = plant {
+                    if !plant.can_go_in_water() && self.config.rows[y] == RowType::Water {
+                        let nenuphar = Nenuphar::new();
                         canvas.copy(
-                            p.texture(),
+                            nenuphar.texture(),
                             None,
                             Rect::new(
                                 self.config.pos_to_coord_x(x) + 5,
@@ -23,7 +23,7 @@ impl Level {
                         )?;
                     }
                     canvas.copy(
-                        p.texture(),
+                        plant.texture(),
                         None,
                         Rect::new(
                             self.config.pos_to_coord_x(x) + 5,
@@ -39,19 +39,20 @@ impl Level {
     }
 
     pub fn draw_zombies(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        for (y, zs) in self.zombies.iter().enumerate() {
-            let mut zs: Vec<&dyn Zombie> = zs.iter().map(|z| z.as_ref()).collect();
-            zs.sort_by(|&z1, &z2| z2.pos().total_cmp(&z1.pos()));
-            for z in zs {
+        for (y, zombies) in self.zombies.iter().enumerate() {
+            let mut zombies: Vec<&dyn Zombie> =
+                zombies.iter().map(|zombie| zombie.as_ref()).collect();
+            zombies.sort_by(|&z1, &z2| z2.pos().total_cmp(&z1.pos()));
+            for zombie in zombies {
                 canvas.copy(
-                    z.texture(),
+                    zombie.texture(),
                     None,
                     Rect::new(
-                        1280 - (z.pos() * 1280.).floor() as i32,
+                        1280 - (zombie.pos() * 1280.).floor() as i32,
                         self.config.pos_to_coord_y(y) + self.config.row_heigth() as i32
-                            - z.height() as i32,
-                        z.width().into(),
-                        z.height().into(),
+                            - zombie.height() as i32,
+                        zombie.width().into(),
+                        zombie.height().into(),
                     ),
                 )?;
             }
@@ -82,7 +83,7 @@ impl Level {
             canvas.copy(
                 sun.texture(),
                 None,
-                Rect::new(sun.x, sun.y, sun.width().into(), sun.height().into()),
+                Rect::new(sun.x, sun.y as i32, sun.width().into(), sun.height().into()),
             )?;
         }
         Ok(())

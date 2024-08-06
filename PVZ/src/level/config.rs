@@ -9,7 +9,7 @@ use crate::{shop::Shop, zombie::zombie_from_id};
 
 use super::Level;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum RowType {
     Grass,
     Water,
@@ -25,7 +25,7 @@ pub struct LevelConfig {
     pub rows: Vec<RowType>,
     pub cols: u8,
 
-    pub wait: Vec<Duration>,
+    pub waits: Vec<Duration>,
     #[allow(clippy::type_complexity)]
     pub zombies: Vec<Vec<(u8, i32, i32)>>,
 }
@@ -62,20 +62,20 @@ impl LevelConfig {
     }
 
     #[allow(clippy::unwrap_in_result)]
-    pub fn load_config(path: &str) -> std::io::Result<Level> {
-        let mut data = fs::read(path)?;
+    pub fn load_config(level: u8) -> std::io::Result<Level> {
+        let mut level_data = fs::read(format!("levels/{level}.data"))?;
 
-        let map = data.remove(0);
+        let map = level_data.remove(0);
 
-        let mut data2 = fs::read(format!("assets/maps/{map}.data"))?;
-        let top = u16::from_le_bytes([data2.remove(0), data2.remove(0)]);
-        let left = u16::from_le_bytes([data2.remove(0), data2.remove(0)]);
-        let width = u16::from_le_bytes([data2.remove(0), data2.remove(0)]);
-        let height = u16::from_le_bytes([data2.remove(0), data2.remove(0)]);
-        let rows = data2.remove(0);
-        let cols = data2.remove(0);
+        let mut map_data = fs::read(format!("assets/maps/{map}.data"))?;
+        let top = u16::from_le_bytes([map_data.remove(0), map_data.remove(0)]);
+        let left = u16::from_le_bytes([map_data.remove(0), map_data.remove(0)]);
+        let width = u16::from_le_bytes([map_data.remove(0), map_data.remove(0)]);
+        let height = u16::from_le_bytes([map_data.remove(0), map_data.remove(0)]);
+        let rows = map_data.remove(0);
+        let cols = map_data.remove(0);
         let rows_types = (0..rows)
-            .map(|_| match data2.remove(0) {
+            .map(|_| match map_data.remove(0) {
                 0 => RowType::Grass,
                 1 => RowType::Water,
                 _ => panic!("Not found row type"),
@@ -83,53 +83,31 @@ impl LevelConfig {
             .collect();
 
         let money = u32::from_le_bytes([
-            data.remove(0),
-            data.remove(0),
-            data.remove(0),
-            data.remove(0),
+            level_data.remove(0),
+            level_data.remove(0),
+            level_data.remove(0),
+            level_data.remove(0),
         ]);
-        let waves = data.remove(0).into();
+        let waves = level_data.remove(0).into();
 
-        let wait = data
+        let waits = level_data
             .drain(0..waves)
             .map(|secs| Duration::from_secs(secs as u64))
             .collect();
 
-        let mut rng = rand::thread_rng();
-        let z_rng_x1 = left + width - 305;
-        let z_rng_y1 = top + height / rows as u16;
-        let z_rng_y2 = top + height;
+        let min_x = left + width - 305;
+        let min_y = top + height / rows as u16;
+        let max_y = top + height;
         let zombies = (0..waves)
             .map(|_| {
-                let types = data.remove(0).into();
-
-                let zombies = data
-                    .chunks_exact(2)
-                    .take(types)
-                    .flat_map(|bytes| {
-                        let z = zombie_from_id(bytes[0]);
-                        (0..bytes[1])
-                            .map(|_| {
-                                (
-                                    bytes[0],
-                                    rng.gen_range((z_rng_x1 as i32)..(1280 - z.width() as i32)),
-                                    rng.gen_range(
-                                        (z_rng_y1 as i32 - z.height() as i32)
-                                            ..(z_rng_y2 as i32 - z.height() as i32),
-                                    ),
-                                )
-                            })
-                            .collect::<Vec<(u8, i32, i32)>>()
-                    })
-                    .collect();
-
-                data.drain(0..types * 2);
-
+                let types = level_data.remove(0).into();
+                let zombies = generate_zombies_wave(&level_data, types, min_x, min_y, max_y);
+                level_data.drain(0..types * 2);
                 zombies
             })
             .collect();
 
-        if !data.is_empty() {
+        if !level_data.is_empty() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Wrong format".to_owned(),
@@ -153,11 +131,40 @@ impl LevelConfig {
                 height,
                 rows: rows_types,
                 cols,
-                wait,
+                waits,
                 zombies,
             },
             shop: Shop::new(money),
             end: None,
         })
     }
+}
+
+fn generate_zombies_wave(
+    data: &[u8],
+    types: usize,
+    min_x: u16,
+    min_y: u16,
+    max_y: u16,
+) -> Vec<(u8, i32, i32)> {
+    let mut rng = rand::thread_rng();
+    let zombies = data
+        .chunks_exact(2)
+        .take(types)
+        .flat_map(|bytes| {
+            let z = zombie_from_id(bytes[0]);
+            (0..bytes[1])
+                .map(|_| {
+                    (
+                        bytes[0],
+                        rng.gen_range((min_x as i32)..(1280 - z.width() as i32)),
+                        rng.gen_range(
+                            (min_y as i32 - z.height() as i32)..(max_y as i32 - z.height() as i32),
+                        ),
+                    )
+                })
+                .collect::<Vec<(u8, i32, i32)>>()
+        })
+        .collect();
+    zombies
 }

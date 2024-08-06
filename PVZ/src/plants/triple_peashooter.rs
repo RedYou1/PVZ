@@ -81,63 +81,11 @@ impl Plant for PlantTriple {
             return (
                 Vec::new(),
                 if y == 0 {
-                    vec![
-                        (
-                            y,
-                            Box::new(Pea {
-                                x: x as f32 - 25.,
-                                damage_type: DamageType::Normal,
-                            }),
-                        ),
-                        (
-                            y + 1,
-                            Box::new(Pea {
-                                x: x as f32 - 25.,
-                                damage_type: DamageType::Normal,
-                            }),
-                        ),
-                    ]
+                    vec![new_pea(x, y), new_pea(x, y + 1)]
                 } else if y == max_y {
-                    vec![
-                        (
-                            y - 1,
-                            Box::new(Pea {
-                                x: x as f32 - 25.,
-                                damage_type: DamageType::Normal,
-                            }),
-                        ),
-                        (
-                            y,
-                            Box::new(Pea {
-                                x: x as f32 - 25.,
-                                damage_type: DamageType::Normal,
-                            }),
-                        ),
-                    ]
+                    vec![new_pea(x, y - 1), new_pea(x, y)]
                 } else {
-                    vec![
-                        (
-                            y - 1,
-                            Box::new(Pea {
-                                x: x as f32 - 25.,
-                                damage_type: DamageType::Normal,
-                            }),
-                        ),
-                        (
-                            y,
-                            Box::new(Pea {
-                                x: x as f32 - 25.,
-                                damage_type: DamageType::Normal,
-                            }),
-                        ),
-                        (
-                            y + 1,
-                            Box::new(Pea {
-                                x: x as f32 - 25.,
-                                damage_type: DamageType::Normal,
-                            }),
-                        ),
-                    ]
+                    vec![new_pea(x, y - 1), new_pea(x, y), new_pea(x, y + 1)]
                 },
             );
         }
@@ -147,4 +95,14 @@ impl Plant for PlantTriple {
     fn health(&mut self) -> &mut Duration {
         &mut self.health
     }
+}
+
+fn new_pea(x: i32, y: usize) -> (usize, Box<dyn Projectile>) {
+    (
+        y,
+        Box::new(Pea {
+            x: x as f32 - 25.,
+            damage_type: DamageType::Normal,
+        }),
+    )
 }
