@@ -28,12 +28,12 @@ impl PeaShooter {
     }
 }
 impl Entity for PeaShooter {
-    fn texture(&self) -> &'static Texture<'static> {
-        match self.damage_type {
-            DamageType::Normal => &textures::textures().plant_simple,
-            DamageType::Fire => &textures::textures().plant_fire_simple,
-            DamageType::Ice => &textures::textures().plant_ice_simple,
-        }
+    fn texture(&self) -> Result<&'static Texture<'static>, String> {
+        Ok(match self.damage_type {
+            DamageType::Normal => &textures::textures()?.plant_simple,
+            DamageType::Fire => &textures::textures()?.plant_fire_simple,
+            DamageType::Ice => &textures::textures()?.plant_ice_simple,
+        })
     }
 
     fn width(&self) -> u16 {

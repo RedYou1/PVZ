@@ -17,8 +17,8 @@ impl Sun {
 }
 
 impl Entity for Sun {
-    fn texture(&self) -> &'static Texture<'static> {
-        &textures::textures().sun
+    fn texture(&self) -> Result<&'static Texture<'static>, String> {
+        Ok(&textures::textures()?.sun)
     }
 
     fn width(&self) -> u16 {

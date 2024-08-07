@@ -103,7 +103,7 @@ impl Level {
 
     pub fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
         canvas.copy(
-            &textures::textures().maps[self.config.map as usize],
+            &textures::textures()?.maps[self.config.map as usize],
             Some(Rect::new(
                 if self.showing_zombies { 238 } else { 0 },
                 0,
@@ -119,7 +119,7 @@ impl Level {
             for &(z, x, y) in t {
                 let z = zombie_from_id(z);
                 canvas.copy(
-                    z.texture(),
+                    z.texture()?,
                     None,
                     Rect::new(x, y, z.width() as u32, z.height() as u32),
                 )?;

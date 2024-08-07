@@ -37,8 +37,8 @@ pub struct Textures {
     pub font: Font<'static, 'static>,
 }
 
-pub fn textures() -> &'static Textures {
-    TEXTURES.get().expect("Not main thread")
+pub fn textures() -> Result<&'static Textures, String> {
+    TEXTURES.get().ok_or("Didn't loaded the textures".to_owned())
 }
 
 pub fn draw_string(canvas: &mut Canvas<Window>, to: Rect, text: &str) -> Result<(), String> {
@@ -46,7 +46,7 @@ pub fn draw_string(canvas: &mut Canvas<Window>, to: Rect, text: &str) -> Result<
         &canvas
             .texture_creator()
             .create_texture_from_surface(
-                textures()
+                textures()?
                     .font
                     .render(text)
                     .blended(Color::WHITE)
@@ -70,13 +70,13 @@ fn freezed(
 
     new_texture.set_blend_mode(BlendMode::Blend);
 
+    let mut success = Ok(());
     canvas
         .with_texture_canvas(&mut new_texture, |texture_canvas| {
-            texture_canvas
-                .copy(texture, None, None)
-                .expect("error while duplicating a texture");
+            success = texture_canvas.copy(texture, None, None);
         })
         .map_err(|e| e.to_string())?;
+    success?;
 
     new_texture.set_color_mod(100, 100, 255);
 

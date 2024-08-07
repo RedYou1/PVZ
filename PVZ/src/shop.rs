@@ -142,7 +142,7 @@ impl Shop {
         canvas.fill_rect(Rect::new(0, 0, self.plants.len() as u32 * 97 + 100, 130))?;
         for (i, plant) in self.plants.iter().enumerate() {
             canvas.copy(
-                plant.texture(),
+                plant.texture()?,
                 None,
                 Rect::new(i as i32 * 97 + 10, 10, 80, 106),
             )?;
@@ -159,7 +159,7 @@ impl Shop {
         )?;
         if let Some((x, y, plant)) = self.dragging.as_ref() {
             canvas.copy(
-                plant.texture(),
+                plant.texture()?,
                 None,
                 Rect::new(
                     *x - 40,

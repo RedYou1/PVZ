@@ -21,12 +21,13 @@ pub struct Pea {
     pub damage_type: DamageType,
 }
 impl Entity for Pea {
-    fn texture(&self) -> &'static sdl2::render::Texture<'static> {
-        match self.damage_type {
-            DamageType::Normal => &textures::textures().pea,
-            DamageType::Fire => &textures::textures().fire_pea,
-            DamageType::Ice => &textures::textures().ice_pea,
-        }
+    fn texture(&self) -> Result<&'static sdl2::render::Texture<'static>, String> {
+        let textures = textures::textures()?;
+        Ok(match self.damage_type {
+            DamageType::Normal => &textures.pea,
+            DamageType::Fire => &textures.fire_pea,
+            DamageType::Ice => &textures.ice_pea,
+        })
     }
 
     fn width(&self) -> u16 {

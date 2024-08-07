@@ -42,6 +42,7 @@ fn dummy_texture<'a>(
             (Color::RGB(192, 192, 192), Color::RGB(64, 64, 64)),
         ),
     ];
+    let mut success = Ok(());
     canvas
         .with_multiple_texture_canvas(textures.iter(), |texture_canvas, &(c1, c2)| {
             for i in 0..SQUARE_SIZE as i32 {
@@ -52,20 +53,23 @@ fn dummy_texture<'a>(
                         // this doesn't mean anything, there was some trial and serror to find
                         // something that wasn't too ugly
                         texture_canvas.set_draw_color(c1);
-                        texture_canvas
-                            .draw_point(Point::new(i, j))
-                            .expect("could not draw point");
+                        success = texture_canvas.draw_point(Point::new(i, j));
+                        if success.is_err() {
+                            return;
+                        }
                     }
                     if (i + j * 2) % 5 == 0 {
                         texture_canvas.set_draw_color(c2);
-                        texture_canvas
-                            .draw_point(Point::new(i, j))
-                            .expect("could not draw point");
+                        success = texture_canvas.draw_point(Point::new(i, j));
+                        if success.is_err() {
+                            return;
+                        }
                     }
                 }
             }
         })
         .map_err(|e| e.to_string())?;
+    success?;
 
     Ok((square_texture1, square_texture2))
 }

@@ -26,8 +26,8 @@ impl PlantTriple {
     }
 }
 impl Entity for PlantTriple {
-    fn texture(&self) -> &'static Texture<'static> {
-        &textures::textures().plant_triple
+    fn texture(&self) -> Result<&'static Texture<'static>, String> {
+        Ok(&textures::textures()?.plant_triple)
     }
 
     fn width(&self) -> u16 {

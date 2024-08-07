@@ -12,7 +12,7 @@ impl Level {
                     if !plant.can_go_in_water() && self.config.rows[y] == RowType::Water {
                         let nenuphar = Nenuphar::new();
                         canvas.copy(
-                            nenuphar.texture(),
+                            nenuphar.texture()?,
                             None,
                             Rect::new(
                                 self.config.pos_to_coord_x(x) + 5,
@@ -23,7 +23,7 @@ impl Level {
                         )?;
                     }
                     canvas.copy(
-                        plant.texture(),
+                        plant.texture()?,
                         None,
                         Rect::new(
                             self.config.pos_to_coord_x(x) + 5,
@@ -45,7 +45,7 @@ impl Level {
             zombies.sort_by(|&z1, &z2| z2.pos().total_cmp(&z1.pos()));
             for zombie in zombies {
                 canvas.copy(
-                    zombie.texture(),
+                    zombie.texture()?,
                     None,
                     Rect::new(
                         1280 - (zombie.pos() * 1280.).floor() as i32,
@@ -64,7 +64,7 @@ impl Level {
         for (y, projs) in self.projectiles.iter().enumerate() {
             for proj in projs {
                 canvas.copy(
-                    proj.texture(),
+                    proj.texture()?,
                     None,
                     Rect::new(
                         proj.x(),
@@ -81,7 +81,7 @@ impl Level {
     pub fn draw_suns(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
         for sun in self.suns.iter() {
             canvas.copy(
-                sun.texture(),
+                sun.texture()?,
                 None,
                 Rect::new(sun.x, sun.y as i32, sun.width().into(), sun.height().into()),
             )?;

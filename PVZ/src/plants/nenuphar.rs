@@ -18,8 +18,8 @@ impl Nenuphar {
     }
 }
 impl Entity for Nenuphar {
-    fn texture(&self) -> &'static Texture<'static> {
-        &textures::textures().plant_nenuphar
+    fn texture(&self) -> Result<&'static Texture<'static>, String> {
+        Ok(&textures::textures()?.plant_nenuphar)
     }
 
     fn width(&self) -> u16 {
@@ -56,7 +56,7 @@ impl Plant for Nenuphar {
         _: i32,
         _: usize,
         _: usize,
-        _: &[Vec<Box<dyn Zombie>>]
+        _: &[Vec<Box<dyn Zombie>>],
     ) -> (Vec<Sun>, Vec<(usize, Box<dyn Projectile>)>) {
         (Vec::new(), Vec::new())
     }

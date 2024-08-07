@@ -61,7 +61,6 @@ impl LevelConfig {
         self.width as u32 / self.cols as u32
     }
 
-    #[allow(clippy::unwrap_in_result)]
     pub fn load_config(level: u8) -> std::io::Result<Level> {
         let mut level_data = fs::read(format!("levels/{level}.data"))?;
 
