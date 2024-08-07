@@ -152,6 +152,11 @@ impl Shop {
                 format!("{}$", plant.cost()).as_str(),
             )?;
         }
+        draw_string(
+            canvas,
+            Rect::new(self.plants.len() as i32 * 97 + 10, 42, 80, 106),
+            format!("{}$", self.money).as_str(),
+        )?;
         if let Some((x, y, plant)) = self.dragging.as_ref() {
             canvas.copy(
                 plant.texture(),
@@ -164,10 +169,6 @@ impl Shop {
                 ),
             )?;
         }
-        draw_string(
-            canvas,
-            Rect::new(self.plants.len() as i32 * 97 + 10, 42, 80, 106),
-            format!("{}$", self.money).as_str(),
-        )
+        Ok(())
     }
 }

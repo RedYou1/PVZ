@@ -112,14 +112,8 @@ impl Level {
             )),
             Rect::new(0, 0, 1280, 720),
         )?;
-        canvas.set_draw_color(Color::BLACK);
-        canvas.fill_rect(Rect::new(1120, 10, 150, 40))?;
-        draw_string(canvas, Rect::new(1120, 10, 150, 40), "Menu")?;
 
         if self.showing_zombies {
-            canvas.fill_rect(Rect::new(1070, 670, 200, 40))?;
-            draw_string(canvas, Rect::new(1070, 670, 200, 40), "Commencer")?;
-
             let mut t: Vec<&(u8, i32, i32)> = self.config.zombies.iter().flatten().collect();
             t.sort_by(|(_, _, y1), (_, _, y2)| y1.cmp(y2));
             for &(z, x, y) in t {
@@ -130,6 +124,12 @@ impl Level {
                     Rect::new(x, y, z.width() as u32, z.height() as u32),
                 )?;
             }
+
+            canvas.set_draw_color(Color::BLACK);
+            canvas.fill_rect(Rect::new(1120, 10, 150, 40))?;
+            draw_string(canvas, Rect::new(1120, 10, 150, 40), "Menu")?;
+            canvas.fill_rect(Rect::new(1070, 670, 200, 40))?;
+            draw_string(canvas, Rect::new(1070, 670, 200, 40), "Commencer")?;
             return Ok(());
         }
 
@@ -147,6 +147,9 @@ impl Level {
                 if end { "Victoire" } else { "Défaite" },
             )?;
         }
+        canvas.set_draw_color(Color::BLACK);
+        canvas.fill_rect(Rect::new(1120, 10, 150, 40))?;
+        draw_string(canvas, Rect::new(1120, 10, 150, 40), "Menu")?;
         Ok(())
     }
 
