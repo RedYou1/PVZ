@@ -12,7 +12,14 @@ pub mod config;
 mod draws;
 
 use crate::{
-    entity::Entity, plants::Plant, projectile::Projectile, shop::Shop, sun::Sun, texts::texts, textures::{self, draw_string}, zombie::{zombie_from_id, Zombie}
+    entity::Entity,
+    plants::Plant,
+    projectile::Projectile,
+    save::SaveFile,
+    shop::Shop,
+    sun::Sun,
+    textures::{self, draw_string},
+    zombie::{zombie_from_id, Zombie},
 };
 
 pub struct Level {
@@ -95,7 +102,7 @@ impl Level {
         Ok(())
     }
 
-    pub fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+    pub fn draw(&self, canvas: &mut Canvas<Window>, save: &SaveFile) -> Result<(), String> {
         canvas.copy(
             &textures::textures()?.maps[self.config.map as usize],
             Some(Rect::new(
@@ -121,9 +128,9 @@ impl Level {
 
             canvas.set_draw_color(Color::BLACK);
             canvas.fill_rect(Rect::new(1120, 10, 150, 40))?;
-            draw_string(canvas, Rect::new(1120, 10, 150, 40), texts().menu)?;
+            draw_string(canvas, Rect::new(1120, 10, 150, 40), save.texts().menu)?;
             canvas.fill_rect(Rect::new(1070, 670, 200, 40))?;
-            draw_string(canvas, Rect::new(1070, 670, 200, 40), texts().start)?;
+            draw_string(canvas, Rect::new(1070, 670, 200, 40), save.texts().start)?;
             return Ok(());
         }
 
@@ -138,12 +145,16 @@ impl Level {
             draw_string(
                 canvas,
                 Rect::new(320, 180, 640, 540),
-                if end { texts().win } else { texts().lost },
+                if end {
+                    save.texts().win
+                } else {
+                    save.texts().lost
+                },
             )?;
         }
         canvas.set_draw_color(Color::BLACK);
         canvas.fill_rect(Rect::new(1120, 10, 150, 40))?;
-        draw_string(canvas, Rect::new(1120, 10, 150, 40), texts().menu)?;
+        draw_string(canvas, Rect::new(1120, 10, 150, 40), save.texts().menu)?;
         Ok(())
     }
 

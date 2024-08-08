@@ -2,6 +2,7 @@ mod entity;
 mod level;
 mod plants;
 mod projectile;
+mod save;
 mod shop;
 mod sun;
 mod texts;

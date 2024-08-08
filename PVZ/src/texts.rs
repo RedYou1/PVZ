@@ -31,27 +31,15 @@ const FR: Texts = Texts {
     lost: "Défaite",
 };
 
+#[derive(Clone, Copy)]
 pub enum Lang {
     EN,
     FR,
 }
 
-static mut LANG: Lang = Lang::EN;
-
-pub fn next_lang() {
-    unsafe {
-        LANG = match LANG {
-            Lang::EN => Lang::FR,
-            Lang::FR => Lang::EN,
-        }
-    }
-}
-
-pub fn texts() -> &'static Texts {
-    unsafe {
-        match LANG {
-            Lang::EN => &EN,
-            Lang::FR => &FR,
-        }
+pub const fn texts(lang: Lang) -> &'static Texts {
+    match lang {
+        Lang::EN => &EN,
+        Lang::FR => &FR,
     }
 }
