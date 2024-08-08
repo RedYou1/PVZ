@@ -12,13 +12,7 @@ pub mod config;
 mod draws;
 
 use crate::{
-    entity::Entity,
-    plants::Plant,
-    projectile::Projectile,
-    shop::Shop,
-    sun::Sun,
-    textures::{self, draw_string},
-    zombie::{zombie_from_id, Zombie},
+    entity::Entity, plants::Plant, projectile::Projectile, shop::Shop, sun::Sun, texts::texts, textures::{self, draw_string}, zombie::{zombie_from_id, Zombie}
 };
 
 pub struct Level {
@@ -127,9 +121,9 @@ impl Level {
 
             canvas.set_draw_color(Color::BLACK);
             canvas.fill_rect(Rect::new(1120, 10, 150, 40))?;
-            draw_string(canvas, Rect::new(1120, 10, 150, 40), "Menu")?;
+            draw_string(canvas, Rect::new(1120, 10, 150, 40), texts().menu)?;
             canvas.fill_rect(Rect::new(1070, 670, 200, 40))?;
-            draw_string(canvas, Rect::new(1070, 670, 200, 40), "Commencer")?;
+            draw_string(canvas, Rect::new(1070, 670, 200, 40), texts().start)?;
             return Ok(());
         }
 
@@ -144,12 +138,12 @@ impl Level {
             draw_string(
                 canvas,
                 Rect::new(320, 180, 640, 540),
-                if end { "Victoire" } else { "Défaite" },
+                if end { texts().win } else { texts().lost },
             )?;
         }
         canvas.set_draw_color(Color::BLACK);
         canvas.fill_rect(Rect::new(1120, 10, 150, 40))?;
-        draw_string(canvas, Rect::new(1120, 10, 150, 40), "Menu")?;
+        draw_string(canvas, Rect::new(1120, 10, 150, 40), texts().menu)?;
         Ok(())
     }
 

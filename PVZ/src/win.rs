@@ -13,6 +13,7 @@ use sdl2::{
 
 use crate::{
     level::{config::LevelConfig, Level},
+    texts::{next_lang, texts},
     textures::{draw_string, load_textures},
 };
 
@@ -84,18 +85,22 @@ impl GameWindow for Win {
                 if self.level.is_some() {
                     if self.pause && (565..=715).contains(&x) {
                         if (200..=240).contains(&y) {
-                            change_full_screen(canvas)?;
+                            next_lang();
                         } else if (260..=300).contains(&y) {
+                            change_full_screen(canvas)?;
+                        } else if (320..=360).contains(&y) {
                             self.level = None;
                             self.pause = false;
-                        } else if (320..=380).contains(&y) {
+                        } else if (380..=420).contains(&y) {
                             self.running = false;
                         }
                     }
                 } else if (485..=635).contains(&x) {
                     if (200..=240).contains(&y) {
-                        change_full_screen(canvas)?;
+                        next_lang();
                     } else if (260..=300).contains(&y) {
+                        change_full_screen(canvas)?;
+                    } else if (320..=360).contains(&y) {
                         self.running = false;
                     }
                 } else if (645..=796).contains(&x) && y >= 200 {
@@ -129,10 +134,12 @@ impl GameWindow for Win {
                 canvas.fill_rect(Rect::new(565, 200, 150, 40))?;
                 canvas.fill_rect(Rect::new(565, 260, 150, 40))?;
                 canvas.fill_rect(Rect::new(565, 320, 150, 40))?;
+                canvas.fill_rect(Rect::new(565, 380, 150, 40))?;
 
-                draw_string(canvas, Rect::new(575, 206, 130, 28), "Plein écran")?;
-                draw_string(canvas, Rect::new(575, 266, 130, 28), "Retour")?;
-                draw_string(canvas, Rect::new(575, 326, 130, 28), "Quitter")?;
+                draw_string(canvas, Rect::new(575, 206, 130, 28), texts().lang)?;
+                draw_string(canvas, Rect::new(575, 266, 130, 28), texts().full_screen)?;
+                draw_string(canvas, Rect::new(575, 326, 130, 28), texts()._return)?;
+                draw_string(canvas, Rect::new(575, 386, 130, 28), texts().quit)?;
             }
             return Ok(());
         }
@@ -142,12 +149,14 @@ impl GameWindow for Win {
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.fill_rect(Rect::new(485, 200, 150, 40))?;
         canvas.fill_rect(Rect::new(485, 260, 150, 40))?;
+        canvas.fill_rect(Rect::new(485, 320, 150, 40))?;
         for i in 0..self.levels_count {
             canvas.fill_rect(Rect::new(645, 200 + i as i32 * 60, 150, 40))?;
         }
 
-        draw_string(canvas, Rect::new(495, 206, 130, 28), "Plein écran")?;
-        draw_string(canvas, Rect::new(495, 266, 130, 28), "Quitter")?;
+        draw_string(canvas, Rect::new(495, 206, 130, 28), texts().lang)?;
+        draw_string(canvas, Rect::new(495, 266, 130, 28), texts().full_screen)?;
+        draw_string(canvas, Rect::new(495, 326, 130, 28), texts()._return)?;
 
         for i in 0..self.levels_count {
             draw_string(

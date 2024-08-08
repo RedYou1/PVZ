@@ -4,6 +4,7 @@ mod plants;
 mod projectile;
 mod shop;
 mod sun;
+mod texts;
 mod textures;
 mod win;
 mod zombie;
