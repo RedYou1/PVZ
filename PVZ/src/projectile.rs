@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use crate::{entity::Entity, textures};
+use sdl2::{rect::FRect, render::Texture};
+
+use crate::textures;
 
 #[derive(Clone, Copy)]
 pub enum DamageType {
@@ -9,8 +11,11 @@ pub enum DamageType {
     Ice,
 }
 
-pub trait Projectile: Entity {
-    fn x(&self) -> i32;
+pub trait Projectile {
+    fn texture(&self) -> Result<&'static Texture<'static>, String>;
+    fn rect(&self, y: f32) -> FRect;
+    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String>;
+
     fn to_remove(&self) -> bool;
     fn damage_amount(&self) -> usize;
     fn damage_type(&self) -> DamageType;
@@ -20,7 +25,7 @@ pub struct Pea {
     pub x: f32,
     pub damage_type: DamageType,
 }
-impl Entity for Pea {
+impl Projectile for Pea {
     fn texture(&self) -> Result<&'static sdl2::render::Texture<'static>, String> {
         let textures = textures::textures()?;
         Ok(match self.damage_type {
@@ -30,12 +35,8 @@ impl Entity for Pea {
         })
     }
 
-    fn width(&self) -> u16 {
-        50
-    }
-
-    fn height(&self) -> u16 {
-        50
+    fn rect(&self, y: f32) -> FRect {
+        FRect::new(self.x, y, 50., 50.)
     }
 
     fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
@@ -44,11 +45,6 @@ impl Entity for Pea {
         }
         self.x += elapsed.as_secs_f32() * 200.;
         Ok(())
-    }
-}
-impl Projectile for Pea {
-    fn x(&self) -> i32 {
-        self.x.floor() as i32
     }
 
     fn damage_amount(&self) -> usize {
@@ -60,6 +56,6 @@ impl Projectile for Pea {
     }
 
     fn to_remove(&self) -> bool {
-        self.x > 1280. + self.width() as f32
+        self.x > 1280. + self.rect(0.).width()
     }
 }

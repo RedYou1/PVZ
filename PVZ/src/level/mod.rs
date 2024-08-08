@@ -1,8 +1,11 @@
-use collision::{do_damage_to_plant, do_damage_to_zombies};
 use config::LevelConfig;
-use rand::Rng;
 use sdl2::{
-    event::Event, keyboard::Keycode, mouse::MouseButton, pixels::Color, rect::Rect, render::Canvas,
+    event::Event,
+    keyboard::Keycode,
+    mouse::MouseButton,
+    pixels::Color,
+    rect::{FPoint, Rect},
+    render::Canvas,
     video::Window,
 };
 use std::time::Duration;
@@ -10,9 +13,10 @@ use std::time::Duration;
 mod collision;
 pub mod config;
 mod draws;
+mod updates;
 
 use crate::{
-    entity::Entity,
+    into_rect,
     plants::Plant,
     projectile::Projectile,
     save::SaveFile,
@@ -70,18 +74,14 @@ impl Level {
                 }
             }
             Event::MouseMotion { x, y, .. } => {
-                let x = scale_x(x) as i32;
-                let y = scale_y(y) as i32;
+                let x = scale_x(x);
+                let y = scale_y(y);
                 for i in self
                     .suns
                     .iter()
                     .enumerate()
                     .filter_map(|(i, sun)| {
-                        if sun.x <= x
-                            && sun.x + sun.width() as i32 >= x
-                            && sun.y as i32 <= y
-                            && sun.y as i32 + sun.height() as i32 >= y
-                        {
+                        if sun.rect().contains_point(FPoint::new(x, y)) {
                             Some(i)
                         } else {
                             None
@@ -115,15 +115,12 @@ impl Level {
         )?;
 
         if self.showing_zombies {
-            let mut t: Vec<&(u8, i32, i32)> = self.config.zombies.iter().flatten().collect();
-            t.sort_by(|(_, _, y1), (_, _, y2)| y1.cmp(y2));
+            let mut t: Vec<&(u8, f32, f32)> = self.config.zombies.iter().flatten().collect();
+            t.sort_by(|(_, _, y1), (_, _, y2)| y1.total_cmp(y2));
             for &(z, x, y) in t {
-                let z = zombie_from_id(z);
-                canvas.copy(
-                    z.texture()?,
-                    None,
-                    Rect::new(x, y, z.width() as u32, z.height() as u32),
-                )?;
+                let mut z = zombie_from_id(z);
+                z.set_x(x);
+                canvas.copy(z.texture()?, None, into_rect(z.rect(y)))?;
             }
 
             canvas.set_draw_color(Color::BLACK);
@@ -181,108 +178,5 @@ impl Level {
         self.spawn_projectiles();
         self.update_zombie_wave(elapsed);
         Ok(())
-    }
-
-    fn update_zombies(&mut self, elapsed: Duration) -> Result<(), String> {
-        for (y, zombies) in self.zombies.iter_mut().enumerate() {
-            for zombie in zombies.iter_mut() {
-                let prev_pos = zombie.pos();
-                zombie.update(!self.showing_zombies, elapsed)?;
-                if zombie.pos()
-                    >= 1. - self.config.left as f32 / 1280. + zombie.width() as f32 / 1280.
-                {
-                    self.end = Some(false);
-                } else {
-                    do_damage_to_plant(
-                        zombie.as_mut(),
-                        self.plants[y].as_mut(),
-                        &self.config,
-                        self.config.rows[y],
-                        prev_pos,
-                        elapsed,
-                    );
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn update_projectiles(&mut self, elapsed: Duration) -> Result<(), String> {
-        for (y, projs) in self.projectiles.iter_mut().enumerate() {
-            let mut indx = Vec::new();
-            for (i, proj) in projs.iter_mut().enumerate() {
-                proj.update(!self.showing_zombies, elapsed)?;
-
-                let proj = proj.as_ref();
-
-                if proj.to_remove() {
-                    indx.insert(0, i);
-                    continue;
-                }
-
-                let mut zombie_to_remove = do_damage_to_zombies(
-                    self.zombies[y].as_mut(),
-                    proj.x(),
-                    proj.width() as i32,
-                    proj.damage_amount(),
-                    proj.damage_type(),
-                );
-                if zombie_to_remove.0 {
-                    indx.insert(0, i);
-                }
-                zombie_to_remove.1.sort();
-                zombie_to_remove.1.reverse();
-                zombie_to_remove.1.dedup();
-                for zombie_index in zombie_to_remove.1 {
-                    self.zombies[y].remove(zombie_index);
-                }
-            }
-            for i in indx {
-                projs.remove(i);
-            }
-        }
-        Ok(())
-    }
-
-    fn update_suns(&mut self, elapsed: Duration) -> Result<(), String> {
-        for sun in self.suns.iter_mut() {
-            sun.update(!self.showing_zombies, elapsed)?;
-        }
-        if self.next_sun > elapsed {
-            self.next_sun -= elapsed
-        } else {
-            self.next_sun = Duration::new(5, 0) - elapsed + self.next_sun;
-            self.suns.push(Sun::new(
-                rand::thread_rng().gen_range(0..1220),
-                0.,
-                rand::thread_rng().gen_range(200.0..420.),
-            ));
-        }
-        Ok(())
-    }
-
-    fn update_zombie_wave(&mut self, mut elapsed: Duration) {
-        if !self.config.waits.is_empty() {
-            if let Some(&f) = self.config.waits.first() {
-                if elapsed >= f {
-                    elapsed -= f;
-                    self.config.waits.remove(0);
-                    let mut z = self.config.zombies.remove(0);
-                    let mut rng = rand::thread_rng();
-                    let mut offsets: Vec<f32> = (0..self.config.rows.len()).map(|_| 0.).collect();
-                    while !z.is_empty() {
-                        let i = rng.gen_range(0..z.len());
-                        let mut z = zombie_from_id(z.remove(i).0);
-                        let i = rng.gen_range(0..self.config.rows.len()) as usize;
-                        z.set_pos(offsets[i]);
-                        offsets[i] -= 0.006;
-                        self.zombies[i].push(z);
-                    }
-                }
-            }
-            if let Some(f) = self.config.waits.first_mut() {
-                *f -= elapsed;
-            }
-        }
     }
 }

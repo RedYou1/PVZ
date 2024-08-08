@@ -27,38 +27,40 @@ pub struct LevelConfig {
 
     pub waits: Vec<Duration>,
     #[allow(clippy::type_complexity)]
-    pub zombies: Vec<Vec<(u8, i32, i32)>>,
+    pub zombies: Vec<Vec<(u8, f32, f32)>>,
 }
 
 impl LevelConfig {
-    pub const fn coord_to_pos_x(&self, x: i32) -> Option<usize> {
-        if x < self.left as i32 || x >= self.left as i32 + self.width as i32 {
+    pub const fn coord_to_pos_x(&self, x: f32) -> Option<usize> {
+        let x = x as usize;
+        if x < self.left as usize || x >= self.left as usize + self.width as usize {
             None
         } else {
-            Some((x as usize - self.left as usize) * self.cols as usize / self.width as usize)
+            Some((x - self.left as usize) * self.cols as usize / self.width as usize)
         }
     }
-    pub fn coord_to_pos_y(&self, y: i32) -> Option<usize> {
-        if y < self.top as i32 || y >= self.top as i32 + self.height as i32 {
+    pub fn coord_to_pos_y(&self, y: f32) -> Option<usize> {
+        let y = y as usize;
+        if y < self.top as usize || y >= self.top as usize + self.height as usize {
             None
         } else {
-            Some((y as usize - self.top as usize) * self.rows.len() / self.height as usize)
+            Some((y - self.top as usize) * self.rows.len() / self.height as usize)
         }
     }
 
-    pub const fn pos_to_coord_x(&self, x: usize) -> i32 {
-        x as i32 * self.width as i32 / self.cols as i32 + self.left as i32
+    pub fn pos_to_coord_x(&self, x: usize) -> f32 {
+        x as f32 * self.width as f32 / self.cols as f32 + self.left as f32
     }
-    pub fn pos_to_coord_y(&self, y: usize) -> i32 {
-        y as i32 * self.height as i32 / self.rows.len() as i32 + self.top as i32
-    }
-
-    pub fn row_heigth(&self) -> u32 {
-        self.height as u32 / self.rows.len() as u32
+    pub fn pos_to_coord_y(&self, y: usize) -> f32 {
+        y as f32 * self.height as f32 / self.rows.len() as f32 + self.top as f32
     }
 
-    pub const fn col_width(&self) -> u32 {
-        self.width as u32 / self.cols as u32
+    pub fn row_heigth(&self) -> f32 {
+        self.height as f32 / self.rows.len() as f32
+    }
+
+    pub fn col_width(&self) -> f32 {
+        self.width as f32 / self.cols as f32
     }
 
     pub fn load_config(level: u8) -> std::io::Result<Level> {
@@ -94,9 +96,9 @@ impl LevelConfig {
             .map(|secs| Duration::from_secs(secs as u64))
             .collect();
 
-        let min_x = left + width - 305;
-        let min_y = top + height / rows as u16;
-        let max_y = top + height;
+        let min_x = left as f32 + width as f32 - 305.;
+        let min_y = top as f32 + height as f32 / rows as f32;
+        let max_y = top as f32 + height as f32;
         let zombies = (0..waves)
             .map(|_| {
                 let types = level_data.remove(0).into();
@@ -142,28 +144,24 @@ impl LevelConfig {
 fn generate_zombies_wave(
     data: &[u8],
     types: usize,
-    min_x: u16,
-    min_y: u16,
-    max_y: u16,
-) -> Vec<(u8, i32, i32)> {
+    min_x: f32,
+    min_y: f32,
+    max_y: f32,
+) -> Vec<(u8, f32, f32)> {
     let mut rng = rand::thread_rng();
-    let zombies = data
-        .chunks_exact(2)
+    data.chunks_exact(2)
         .take(types)
         .flat_map(|bytes| {
-            let z = zombie_from_id(bytes[0]);
+            let (width, height) = zombie_from_id(bytes[0]).rect(0.).size();
             (0..bytes[1])
                 .map(|_| {
                     (
                         bytes[0],
-                        rng.gen_range((min_x as i32)..(1280 - z.width() as i32)),
-                        rng.gen_range(
-                            (min_y as i32 - z.height() as i32)..(max_y as i32 - z.height() as i32),
-                        ),
+                        rng.gen_range((min_x)..(1280. - width)),
+                        rng.gen_range((min_y - height)..(max_y - height)),
                     )
                 })
-                .collect::<Vec<(u8, i32, i32)>>()
+                .collect::<Vec<(u8, f32, f32)>>()
         })
-        .collect();
-    zombies
+        .collect()
 }

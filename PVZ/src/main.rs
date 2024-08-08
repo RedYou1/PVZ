@@ -1,4 +1,3 @@
-mod entity;
 mod level;
 mod plants;
 mod projectile;
@@ -11,6 +10,7 @@ mod win;
 mod zombie;
 
 use sdl::run;
+use sdl2::rect::{FRect, Rect};
 use win::Win;
 
 pub fn main() -> Result<(), String> {
@@ -21,5 +21,14 @@ pub fn main() -> Result<(), String> {
         720,
         |window| window.fullscreen_desktop().resizable(),
         Win::new,
+    )
+}
+
+pub fn into_rect(rect: FRect) -> Rect {
+    Rect::new(
+        rect.x() as i32,
+        rect.y() as i32,
+        rect.width() as u32,
+        rect.height() as u32,
     )
 }

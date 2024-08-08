@@ -1,8 +1,10 @@
 use std::time::Duration;
 
+use sdl2::rect::FRect;
+
 use crate::{
     plants::{nenuphar::Nenuphar, Plant},
-    projectile::DamageType,
+    projectile::{DamageType, Projectile},
     zombie::Zombie,
 };
 
@@ -17,7 +19,7 @@ impl Level {
             for (x, plant) in plants.iter_mut().enumerate() {
                 if let Some(plant) = plant {
                     let mut spawns = plant.should_spawn(
-                        self.config.pos_to_coord_x(x) + plant.width() as i32 / 2,
+                        self.config.pos_to_coord_x(x) + plant.rect(0., 0.).width() / 2.,
                         self.config.pos_to_coord_y(y),
                         y,
                         self.config.rows.len() - 1,
@@ -38,12 +40,12 @@ pub(super) fn do_damage_to_plant(
     plants: &mut [Option<Box<dyn Plant>>],
     config: &LevelConfig,
     row_type: RowType,
-    prev_pos: f32,
+    prev_x: f32,
     elapsed: Duration,
 ) {
-    if let Some(x) = config.coord_to_pos_x((1280. - prev_pos * 1280.) as i32) {
+    if let Some(x) = config.coord_to_pos_x(prev_x) {
         if let Some(plant) = plants[x].as_mut() {
-            zombie.set_pos(prev_pos);
+            zombie.set_x(prev_x);
             let diff = elapsed.as_secs_f32() * if zombie.freezed() { 0.5 } else { 1. };
             if plant.health().as_secs_f32() < diff {
                 plants[x] = if row_type == RowType::Water && !plant.is_nenuphar() {
@@ -55,11 +57,11 @@ pub(super) fn do_damage_to_plant(
                 *plant.health() -= Duration::from_secs_f32(diff);
             }
         }
-    } else if let Some(x) = config.coord_to_pos_x((1280. - zombie.pos() * 1280.) as i32) {
+    } else if let Some(x) = config.coord_to_pos_x(zombie.rect(0.).left()) {
         if let Some(plant) = plants[x].as_ref() {
-            let pos = (config.pos_to_coord_x(x) as f32 + plant.width() as f32 - 1280.) / -1280.;
-            if zombie.pos() > pos {
-                zombie.set_pos(pos);
+            let rect = plant.rect(config.pos_to_coord_x(x), 0.);
+            if zombie.rect(0.).has_intersection(rect) {
+                zombie.set_x(rect.x() + rect.width());
             }
         }
     }
@@ -67,28 +69,31 @@ pub(super) fn do_damage_to_plant(
 
 pub(super) fn do_damage_to_zombies(
     row: &mut [Box<dyn Zombie>],
-    proj_x: i32,
-    proj_width: i32,
-    damage_amount: usize,
-    damage_type: DamageType,
+    proj: &dyn Projectile,
 ) -> (bool, Vec<usize>) {
     let mut zombies = row
         .iter_mut()
         .enumerate()
         .filter_map(|(i, zombie)| {
-            let zx = 1280 - (zombie.pos() * 1280.).floor() as i32 + zombie.hit_box().0 as i32;
-            if zx + zombie.hit_box().1 as i32 >= proj_x && zx <= proj_x + proj_width {
-                Some((i, zombie.pos()))
+            let hit_box = zombie.hit_box(0.);
+            if hit_box.has_intersection(proj.rect(0.)) {
+                Some((i, hit_box))
             } else {
                 None
             }
         })
-        .collect::<Vec<(usize, f32)>>();
-    zombies.sort_by(|(_, pos1), (_, pos2)| pos2.total_cmp(pos1));
+        .collect::<Vec<(usize, FRect)>>();
+    zombies.sort_by(|(_, pos1), (_, pos2)| pos1.left().total_cmp(&pos2.left()));
     if let Some(&(zombie_index, _)) = zombies.first() {
         (
             true,
-            hit_zombie(row, zombie_index, damage_amount, damage_type, false),
+            hit_zombie(
+                row,
+                zombie_index,
+                proj.damage_amount(),
+                proj.damage_type(),
+                false,
+            ),
         )
     } else {
         (false, Vec::new())
@@ -121,16 +126,14 @@ pub(super) fn propagate(
 ) -> Vec<usize> {
     let size = {
         let oz = row[zombie_index].as_ref();
-        let zx = 1280 - (oz.pos() * 1280.).floor() as i32 + oz.hit_box().0 as i32;
-        (zx, zx + oz.hit_box().1 as i32)
+        oz.hit_box(0.)
     };
     let mut to_remove = Vec::new();
     for zombie_index2 in row
         .iter_mut()
         .enumerate()
         .filter_map(|(i, zombie)| {
-            let zx = 1280 - (zombie.pos() * 1280.).floor() as i32 + zombie.hit_box().0 as i32;
-            if zx + zombie.hit_box().1 as i32 >= size.0 && zx <= size.1 {
+            if zombie.hit_box(0.).has_intersection(size) {
                 Some(i)
             } else {
                 None

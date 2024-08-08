@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use sdl2::render::Texture;
+use sdl2::{rect::FRect, render::Texture};
 
-use crate::{entity::Entity, projectile::Projectile, sun::Sun, textures, zombie::Zombie};
+use crate::{projectile::Projectile, sun::Sun, textures, zombie::Zombie};
 
 use super::Plant;
 
@@ -17,23 +17,19 @@ impl Nenuphar {
         }
     }
 }
-impl Entity for Nenuphar {
+impl Plant for Nenuphar {
     fn texture(&self) -> Result<&'static Texture<'static>, String> {
         Ok(&textures::textures()?.plant_nenuphar)
     }
 
-    fn width(&self) -> u16 {
-        70
-    }
-    fn height(&self) -> u16 {
-        100
+    fn rect(&self, x: f32, y: f32) -> FRect {
+        FRect::new(x, y, 70., 100.)
     }
 
     fn update(&mut self, _: bool, _: Duration) -> Result<(), String> {
         Ok(())
     }
-}
-impl Plant for Nenuphar {
+
     fn cost(&self) -> u32 {
         25
     }
@@ -52,8 +48,8 @@ impl Plant for Nenuphar {
 
     fn should_spawn(
         &mut self,
-        _: i32,
-        _: i32,
+        _: f32,
+        _: f32,
         _: usize,
         _: usize,
         _: &[Vec<Box<dyn Zombie>>],

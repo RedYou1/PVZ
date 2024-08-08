@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use sdl2::render::Texture;
+use sdl2::{rect::FRect, render::Texture};
 
-use crate::{entity::Entity, projectile::Projectile, sun::Sun, textures, zombie::Zombie};
+use crate::{projectile::Projectile, sun::Sun, textures, zombie::Zombie};
 
 use super::Plant;
 
@@ -19,16 +19,13 @@ impl Sunflower {
         }
     }
 }
-impl Entity for Sunflower {
+impl Plant for Sunflower {
     fn texture(&self) -> Result<&'static Texture<'static>, String> {
         Ok(&textures::textures()?.plant_sunflower)
     }
 
-    fn width(&self) -> u16 {
-        70
-    }
-    fn height(&self) -> u16 {
-        100
+    fn rect(&self, x: f32, y: f32) -> FRect {
+        FRect::new(x, y, 70., 100.)
     }
 
     fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
@@ -37,8 +34,7 @@ impl Entity for Sunflower {
         }
         Ok(())
     }
-}
-impl Plant for Sunflower {
+
     fn cost(&self) -> u32 {
         50
     }
@@ -61,18 +57,15 @@ impl Plant for Sunflower {
 
     fn should_spawn(
         &mut self,
-        x: i32,
-        y: i32,
+        x: f32,
+        y: f32,
         _: usize,
         _: usize,
         _: &[Vec<Box<dyn Zombie>>],
     ) -> (Vec<Sun>, Vec<(usize, Box<dyn Projectile>)>) {
         if self.charge >= Duration::from_millis(24000) {
             self.charge -= Duration::from_millis(24000);
-            return (
-                vec![Sun::new(x, y as f32 - 50., y as f32 + 50.)],
-                Vec::new(),
-            );
+            return (vec![Sun::new(x, y - 50., y + 50.)], Vec::new());
         }
         (Vec::new(), Vec::new())
     }

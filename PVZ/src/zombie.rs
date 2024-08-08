@@ -1,18 +1,18 @@
 use std::time::Duration;
 
-use sdl2::render::Texture;
+use sdl2::{rect::FRect, render::Texture};
 
-use crate::{entity::Entity, projectile::DamageType, textures};
+use crate::{projectile::DamageType, textures};
 
 pub fn zombie_from_id(id: u8) -> Box<dyn Zombie> {
     match id {
         0 => Box::new(ZombieBase {
-            pos: 0.,
+            x: 1280.,
             health: ZombieBaseHealth::Normal.into(),
             freeze: Duration::new(0, 0),
         }),
         1 => Box::new(ZombieBase {
-            pos: 0.,
+            x: 1280.,
             health: ZombieBaseHealth::Cone.into(),
             freeze: Duration::new(0, 0),
         }),
@@ -20,16 +20,19 @@ pub fn zombie_from_id(id: u8) -> Box<dyn Zombie> {
     }
 }
 
-pub trait Zombie: Entity {
-    fn set_pos(&mut self, x: f32);
-    fn pos(&self) -> f32;
+pub trait Zombie {
+    fn texture(&self) -> Result<&'static Texture<'static>, String>;
+    fn rect(&self, y: f32) -> FRect;
+    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String>;
+
+    fn set_x(&mut self, x: f32);
     fn hit(
         &mut self,
         damage_amount: usize,
         damage_type: DamageType,
         propagated: bool,
     ) -> (bool, bool);
-    fn hit_box(&self) -> (u16, u16);
+    fn hit_box(&self, y: f32) -> FRect;
     fn freezed(&self) -> bool;
 }
 
@@ -65,12 +68,12 @@ impl From<ZombieBaseHealth> for usize {
 }
 
 pub struct ZombieBase {
-    pos: f32,
+    x: f32,
     health: usize,
     freeze: Duration,
 }
 
-impl Entity for ZombieBase {
+impl Zombie for ZombieBase {
     fn texture(&self) -> Result<&'static Texture<'static>, String> {
         let textures = textures::textures()?;
         Ok(if self.freeze.is_zero() {
@@ -90,41 +93,47 @@ impl Entity for ZombieBase {
         })
     }
 
-    fn width(&self) -> u16 {
-        55
+    fn rect(&self, y: f32) -> FRect {
+        FRect::new(
+            self.x,
+            y,
+            55.,
+            match self.health.into() {
+                ZombieBaseHealth::MissingHead | ZombieBaseHealth::Normal => 137.,
+                ZombieBaseHealth::HalfCone | ZombieBaseHealth::Cone => 171.,
+            },
+        )
     }
-    fn height(&self) -> u16 {
-        match self.health.into() {
-            ZombieBaseHealth::MissingHead | ZombieBaseHealth::Normal => 137,
-            ZombieBaseHealth::HalfCone | ZombieBaseHealth::Cone => 171,
-        }
-    }
+
     fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
         if playing {
-            self.pos += elapsed.as_secs_f32() * 0.0135324;
+            self.x -= elapsed.as_secs_f32() * 17.321472;
             if !self.freeze.is_zero() {
                 if self.freeze > elapsed {
                     self.freeze -= elapsed
                 } else {
                     self.freeze = Duration::ZERO;
                 }
-                self.pos -= elapsed.as_secs_f32() * 0.0135324 * 0.5;
+                self.x += elapsed.as_secs_f32() * 17.321472 * 0.5;
             }
         }
         Ok(())
     }
-}
-impl Zombie for ZombieBase {
-    fn set_pos(&mut self, x: f32) {
-        self.pos = x;
+
+    fn set_x(&mut self, x: f32) {
+        self.x = x;
     }
 
-    fn pos(&self) -> f32 {
-        self.pos
-    }
-
-    fn hit_box(&self) -> (u16, u16) {
-        (16, 39)
+    fn hit_box(&self, y: f32) -> FRect {
+        FRect::new(
+            self.x + 16.,
+            y,
+            39.,
+            match self.health.into() {
+                ZombieBaseHealth::MissingHead | ZombieBaseHealth::Normal => 137.,
+                ZombieBaseHealth::HalfCone | ZombieBaseHealth::Cone => 171.,
+            },
+        )
     }
 
     fn hit(

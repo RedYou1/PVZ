@@ -1,35 +1,29 @@
 use std::time::Duration;
 
-use sdl2::render::Texture;
+use sdl2::{rect::FRect, render::Texture};
 
-use crate::{entity::Entity, textures};
+use crate::textures;
 
 pub struct Sun {
-    pub x: i32,
+    pub x: f32,
     pub y: f32,
     pub dist: f32,
 }
 
 impl Sun {
-    pub const fn new(x: i32, y: f32, dist: f32) -> Self {
+    pub const fn new(x: f32, y: f32, dist: f32) -> Self {
         Self { x, y, dist }
     }
-}
 
-impl Entity for Sun {
-    fn texture(&self) -> Result<&'static Texture<'static>, String> {
+    pub fn texture(&self) -> Result<&'static Texture<'static>, String> {
         Ok(&textures::textures()?.sun)
     }
 
-    fn width(&self) -> u16 {
-        60
+    pub fn rect(&self) -> FRect {
+        FRect::new(self.x, self.y, 60., 90.)
     }
 
-    fn height(&self) -> u16 {
-        90
-    }
-
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
+    pub fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
         if !playing {
             return Ok(());
         }

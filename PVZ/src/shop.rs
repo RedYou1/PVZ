@@ -1,8 +1,14 @@
 use sdl2::{
-    event::Event, mouse::MouseButton, pixels::Color, rect::Rect, render::Canvas, video::Window,
+    event::Event,
+    mouse::MouseButton,
+    pixels::Color,
+    rect::{FPoint, FRect, Rect},
+    render::Canvas,
+    video::Window,
 };
 
 use crate::{
+    into_rect,
     level::config::{LevelConfig, RowType},
     plants::{
         nenuphar::Nenuphar, peashooter::PeaShooter, sunflower::Sunflower,
@@ -14,7 +20,7 @@ use crate::{
 
 pub struct Shop {
     pub plants: Vec<Box<dyn Plant>>,
-    pub dragging: Option<(i32, i32, Box<dyn Plant>)>,
+    pub dragging: Option<(f32, f32, Box<dyn Plant>)>,
     pub money: u32,
 }
 
@@ -53,8 +59,8 @@ impl Shop {
                 y,
                 ..
             } => {
-                let x = scale_x(x) as i32;
-                let y = scale_y(y) as i32;
+                let x = scale_x(x);
+                let y = scale_y(y);
                 self.drop_plant(config, x, y, plants);
             }
             Event::MouseButtonDown {
@@ -63,18 +69,17 @@ impl Shop {
                 y,
                 ..
             } => {
-                let x = scale_x(x) as i32;
-                let y = scale_y(y) as i32;
+                let x = scale_x(x);
+                let y = scale_y(y);
                 if self.dragging.is_none() {
                     if let [plant] = self
                         .plants
                         .iter()
                         .enumerate()
                         .filter_map(|(i, plant)| {
-                            if x >= i as i32 * 97 + 10
-                                && x <= i as i32 * 97 + 10 + plant.width() as i32
-                                && y >= 10
-                                && y <= 10 + plant.height() as i32
+                            if plant
+                                .rect(i as f32 * 97. + 10., 10.)
+                                .contains_point(FPoint::new(x, y))
                             {
                                 Some(plant.as_ref())
                             } else {
@@ -89,8 +94,8 @@ impl Shop {
             }
             Event::MouseMotion { x, y, .. } => {
                 if let Some(plant) = self.dragging.as_mut() {
-                    plant.0 = scale_x(x) as i32;
-                    plant.1 = scale_y(y) as i32;
+                    plant.0 = scale_x(x);
+                    plant.1 = scale_y(y);
                 }
             }
             _ => {}
@@ -101,8 +106,8 @@ impl Shop {
     fn drop_plant(
         &mut self,
         config: &LevelConfig,
-        x: i32,
-        y: i32,
+        x: f32,
+        y: f32,
         plants: &mut [Vec<Option<Box<dyn Plant>>>],
     ) {
         if let Some((_, _, plant)) = self.dragging.as_ref() {
@@ -161,12 +166,12 @@ impl Shop {
             canvas.copy(
                 plant.texture()?,
                 None,
-                Rect::new(
-                    *x - 40,
-                    *y - 53,
-                    config.col_width() - 10,
-                    config.row_heigth() - 10,
-                ),
+                into_rect(FRect::new(
+                    *x - 40.,
+                    *y - 53.,
+                    config.col_width() - 10.,
+                    config.row_heigth() - 10.,
+                )),
             )?;
         }
         Ok(())

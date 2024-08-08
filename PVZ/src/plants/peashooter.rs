@@ -1,9 +1,8 @@
 use std::time::Duration;
 
-use sdl2::render::Texture;
+use sdl2::{rect::FRect, render::Texture};
 
 use crate::{
-    entity::Entity,
     projectile::{DamageType, Pea, Projectile},
     sun::Sun,
     textures,
@@ -27,7 +26,7 @@ impl PeaShooter {
         }
     }
 }
-impl Entity for PeaShooter {
+impl Plant for PeaShooter {
     fn texture(&self) -> Result<&'static Texture<'static>, String> {
         Ok(match self.damage_type {
             DamageType::Normal => &textures::textures()?.plant_simple,
@@ -36,11 +35,8 @@ impl Entity for PeaShooter {
         })
     }
 
-    fn width(&self) -> u16 {
-        70
-    }
-    fn height(&self) -> u16 {
-        100
+    fn rect(&self, x: f32, y: f32) -> FRect {
+        FRect::new(x, y, 70., 100.)
     }
 
     fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
@@ -49,8 +45,7 @@ impl Entity for PeaShooter {
         }
         Ok(())
     }
-}
-impl Plant for PeaShooter {
+
     fn cost(&self) -> u32 {
         match self.damage_type {
             DamageType::Normal => 100,
@@ -77,8 +72,8 @@ impl Plant for PeaShooter {
 
     fn should_spawn(
         &mut self,
-        x: i32,
-        _: i32,
+        x: f32,
+        _: f32,
         y: usize,
         _: usize,
         zombies: &[Vec<Box<dyn Zombie>>],
@@ -94,7 +89,7 @@ impl Plant for PeaShooter {
                 vec![(
                     y,
                     Box::new(Pea {
-                        x: x as f32 - 25.,
+                        x: x - 25.,
                         damage_type: self.damage_type,
                     }),
                 )],
