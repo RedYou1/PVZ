@@ -15,6 +15,7 @@ use crate::{
     level::{config::LevelConfig, Level},
     save::SaveFile,
     textures::{draw_string, load_textures},
+    UPDATE_AVAILABLE,
 };
 
 pub struct Win {
@@ -127,42 +128,52 @@ impl GameWindow for Win {
     fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
         set_scale(canvas, 1., 1.)?;
         if let Some(level) = self.level.as_ref() {
-            canvas.set_draw_color(Color::RGB(0, 0, 0));
+            canvas.set_draw_color(Color::BLACK);
             canvas.clear();
-
-            level.draw(canvas, &self.save)?;
-            if self.pause {
-                canvas.set_draw_color(Color::RGB(0, 0, 0));
-                canvas.fill_rect(Rect::new(565, 200, 150, 40))?;
-                canvas.fill_rect(Rect::new(565, 260, 150, 40))?;
-                canvas.fill_rect(Rect::new(565, 320, 150, 40))?;
-                canvas.fill_rect(Rect::new(565, 380, 150, 40))?;
-
-                draw_string(canvas, Rect::new(575, 206, 130, 28), self.save.texts().lang)?;
-                draw_string(
-                    canvas,
-                    Rect::new(575, 266, 130, 28),
-                    self.save.texts().full_screen,
-                )?;
-                draw_string(
-                    canvas,
-                    Rect::new(575, 326, 130, 28),
-                    self.save.texts()._return,
-                )?;
-                draw_string(canvas, Rect::new(575, 386, 130, 28), self.save.texts().quit)?;
-            }
-            return Ok(());
+            return self.draw_with_level(canvas, level);
         }
         canvas.set_draw_color(Color::RGB(50, 50, 50));
         canvas.clear();
 
-        canvas.set_draw_color(Color::RGB(0, 0, 0));
+        self.draw_main_menu(canvas)
+    }
+}
+
+impl Win {
+    fn draw_with_level(&self, canvas: &mut Canvas<Window>, level: &Level) -> Result<(), String> {
+        level.draw(canvas, &self.save)?;
+        if self.pause {
+            canvas.set_draw_color(Color::RGB(0, 0, 0));
+            canvas.fill_rect(Rect::new(565, 200, 150, 40))?;
+            canvas.fill_rect(Rect::new(565, 260, 150, 40))?;
+            canvas.fill_rect(Rect::new(565, 320, 150, 40))?;
+            canvas.fill_rect(Rect::new(565, 380, 150, 40))?;
+
+            draw_string(canvas, Rect::new(575, 206, 130, 28), self.save.texts().lang)?;
+            draw_string(
+                canvas,
+                Rect::new(575, 266, 130, 28),
+                self.save.texts().full_screen,
+            )?;
+            draw_string(
+                canvas,
+                Rect::new(575, 326, 130, 28),
+                self.save.texts()._return,
+            )?;
+            draw_string(canvas, Rect::new(575, 386, 130, 28), self.save.texts().quit)?;
+        }
+        Ok(())
+    }
+
+    fn draw_main_menu(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+        canvas.set_draw_color(Color::BLACK);
         canvas.fill_rect(Rect::new(485, 200, 150, 40))?;
         canvas.fill_rect(Rect::new(485, 260, 150, 40))?;
         canvas.fill_rect(Rect::new(485, 320, 150, 40))?;
         for i in 0..self.levels_count {
             canvas.fill_rect(Rect::new(645, 200 + i as i32 * 60, 150, 40))?;
         }
+        canvas.fill_rect(Rect::new(570, 670, 700, 40))?;
 
         draw_string(canvas, Rect::new(495, 206, 130, 28), self.save.texts().lang)?;
         draw_string(
@@ -183,7 +194,17 @@ impl GameWindow for Win {
                 format!("{:0>3}", i + 1).as_str(),
             )?;
         }
-        Ok(())
+
+        draw_string(
+            canvas,
+            Rect::new(570, 670, 700, 40),
+            match unsafe { UPDATE_AVAILABLE.as_ref() } {
+                Some(Ok(true)) => self.save.texts().update_available,
+                Some(Ok(false)) => self.save.texts().up_to_date,
+                Some(Err(e)) => e,
+                None => self.save.texts().loading,
+            },
+        )
     }
 }
 

@@ -7,6 +7,10 @@ pub struct Texts {
     pub start: &'static str,
     pub win: &'static str,
     pub lost: &'static str,
+
+    pub update_available: &'static str,
+    pub up_to_date: &'static str,
+    pub loading: &'static str,
 }
 
 const EN: Texts = Texts {
@@ -18,6 +22,9 @@ const EN: Texts = Texts {
     start: "Start",
     win: "Win",
     lost: "Lost",
+    update_available: "An update is available.",
+    up_to_date: "You are up to date.",
+    loading: "Loading...",
 };
 
 const FR: Texts = Texts {
@@ -29,6 +36,9 @@ const FR: Texts = Texts {
     start: "Commencer",
     win: "Victoire",
     lost: "Défaite",
+    update_available: "Une mise à jour est disponible.",
+    up_to_date: "Vous êtes à jour.",
+    loading: "Chargement...",
 };
 
 #[derive(Clone, Copy)]
