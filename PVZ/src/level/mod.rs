@@ -125,13 +125,13 @@ impl Level {
         );
         let mut shop = Grid::new(
             self,
-            element,
             vec![
                 ColType::Ratio(10.),
                 ColType::Ratio(100.),
                 ColType::Ratio(1150.),
             ],
             rows,
+            element,
         );
         shop.init(canvas)?;
         shop.init_frame(canvas, self.surface)?;
@@ -169,6 +169,8 @@ impl GridChildren<Win> for Level {
         let rows_type: &[config::RowType] = rows_type.as_ref();
         self.map_plants = Grid::new(
             self,
+            cols,
+            rows,
             HashMap::from_iter(self.plants.iter().enumerate().flat_map(|(y, plants)| {
                 plants.iter().enumerate().map(move |(x, plant)| {
                     (
@@ -184,8 +186,6 @@ impl GridChildren<Win> for Level {
                     )
                 })
             })),
-            cols,
-            rows,
         );
         self.map_plants.grid_init(canvas, unsafe {
             _self.as_mut().ok_or("unwrap ptr init level")?

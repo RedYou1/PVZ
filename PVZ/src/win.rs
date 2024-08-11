@@ -3,6 +3,7 @@ use std::{collections::HashMap, fs, time::Duration};
 use sdl::{
     event::Event,
     game_window::GameWindow,
+    grid,
     grid::{ColType, Grid, GridChildren, Pos, RowType},
     user_control::UserControl,
 };
@@ -110,149 +111,96 @@ impl GameWindow for Win {
 
     #[allow(clippy::too_many_lines)]
     fn init(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        self.main_menu = Grid::new(
+        self.main_menu = grid!(
             self,
-            HashMap::from([
-                (
-                    Pos { x: 1, y: 1 },
-                    Box::new(Grid::new(
-                        self,
-                        HashMap::from([
-                            (
-                                Pos { x: 0, y: 0 },
-                                Box::new(Button::new(Self::next_lang, |_self| _self.texts().lang))
-                                    as Box<dyn GridChildren<Win>>,
-                            ),
-                            (
-                                Pos { x: 0, y: 2 },
-                                Box::new(Button::new(Self::change_full_screen, |_self| {
-                                    _self.texts().full_screen
-                                })) as Box<dyn GridChildren<Win>>,
-                            ),
-                            (
-                                Pos { x: 0, y: 4 },
-                                Box::new(Button::new(Self::quit, |_self| _self.texts().quit))
-                                    as Box<dyn GridChildren<Win>>,
-                            ),
-                            (
-                                Pos { x: 0, y: 6 },
-                                Box::new(Update::new(Self::texts)) as Box<dyn GridChildren<Win>>,
-                            ),
-                        ]),
-                        vec![ColType::Ratio(1.)],
-                        vec![
-                            RowType::Ratio(40.),
-                            RowType::Ratio(20.),
-                            RowType::Ratio(40.),
-                            RowType::Ratio(20.),
-                            RowType::Ratio(40.),
-                            RowType::Ratio(20.),
-                            RowType::Ratio(40.),
-                        ],
-                    )) as Box<dyn GridChildren<Win>>,
-                ),
-                (
-                    Pos { x: 3, y: 1 },
-                    Box::new(Grid::new(
-                        self,
-                        HashMap::from_iter((0..self.levels_count).map(|level| {
-                            (
-                                Pos {
-                                    x: 0,
-                                    y: level as usize,
-                                },
-                                Box::new(Button::new(
-                                    move |_self: &mut Win, _, _, canvas| {
-                                        let win = _self as *mut Win;
-                                        _self.level = Some(
-                                            LevelConfig::load_config(level)
-                                                .map_err(|e| e.to_string())?,
-                                        );
-                                        _self
-                                            .level
-                                            .as_mut()
-                                            .ok_or("unwrap level after init")?
-                                            .grid_init(canvas, unsafe {
-                                                win.as_mut().ok_or("unwrap level after init2")?
-                                            })
-                                    },
-                                    move |_| format!("{:0>3}", level + 1),
-                                )) as Box<dyn GridChildren<Win>>,
-                            )
-                        })),
-                        vec![ColType::Ratio(1.)],
-                        (0..self.levels_count)
-                            .flat_map(|_| [RowType::Ratio(1.)])
-                            .collect(),
-                    )) as Box<dyn GridChildren<Win>>,
-                ),
-            ]),
-            vec![
-                ColType::Ratio(485.),
-                ColType::Ratio(150.),
-                ColType::Ratio(10.),
-                ColType::Ratio(150.),
-                ColType::Ratio(485.),
-            ],
-            vec![
-                RowType::Ratio(200.),
-                RowType::Ratio(320.),
-                RowType::Ratio(200.),
-            ],
+            Win,
+            ColType::Ratio(485.),
+            ColType::Ratio(150.),
+            ColType::Ratio(10.),
+            ColType::Ratio(150.),
+            ColType::Ratio(485.);
+            RowType::Ratio(200.),
+            RowType::Ratio(320.),
+            RowType::Ratio(200.);
+            Pos { x: 1, y: 1 } => grid!(
+                self,
+                Win,
+                ColType::Ratio(1.);
+                RowType::Ratio(40.),
+                RowType::Ratio(20.),
+                RowType::Ratio(40.),
+                RowType::Ratio(20.),
+                RowType::Ratio(40.),
+                RowType::Ratio(20.),
+                RowType::Ratio(40.);
+                Pos { x: 0, y: 0 } => Button::new(Self::next_lang, |_self| _self.texts().lang),
+                Pos { x: 0, y: 2 } => Button::new(Self::change_full_screen, |_self| _self.texts().full_screen),
+                Pos { x: 0, y: 4 } => Button::new(Self::quit, |_self| _self.texts().quit),
+                Pos { x: 0, y: 6 } => Update::new(Self::texts),
+            ),
+            Pos { x: 3, y: 1 } => Grid::new(
+                self,
+                vec![ColType::Ratio(1.)],
+                (0..self.levels_count).map(|_| RowType::Ratio(1.)).collect(),
+                HashMap::from_iter((0..self.levels_count).map(|level| {
+                    (
+                        Pos { x: 0, y: level as usize },
+                        Box::new(Button::new(
+                            move |_self: &mut Win, _, _, canvas| {
+                                let win = _self as *mut Win;
+                                _self.level = Some(
+                                    LevelConfig::load_config(level)
+                                        .map_err(|e| e.to_string())?,
+                                );
+                                _self
+                                    .level
+                                    .as_mut()
+                                    .ok_or("unwrap level after init")?
+                                    .grid_init(canvas, unsafe {
+                                        win.as_mut().ok_or("unwrap level after init2")?
+                                    })
+                            },
+                            move |_| format!("{:0>3}", level + 1),
+                        )) as Box<dyn GridChildren<Win>>,
+                    )
+                }))
+            ),
         );
-        self.options = Grid::new(
+        self.options = grid!(
             self,
-            HashMap::from([
-                (
-                    Pos { x: 1, y: 1 },
-                    Box::new(Button::new(Self::next_lang, |_self| _self.texts().lang))
-                        as Box<dyn GridChildren<Win>>,
-                ),
-                (
-                    Pos { x: 1, y: 3 },
-                    Box::new(Button::new(Self::change_full_screen, |_self| {
+            Win,
+            ColType::Ratio(565.),
+            ColType::Ratio(150.),
+            ColType::Ratio(565.);
+            RowType::Ratio(200.),
+            RowType::Ratio(40.),
+            RowType::Ratio(20.),
+            RowType::Ratio(40.),
+            RowType::Ratio(20.),
+            RowType::Ratio(40.),
+            RowType::Ratio(20.),
+            RowType::Ratio(40.),
+            RowType::Ratio(300.);
+            Pos { x: 1, y: 1 } => Button::new(Self::next_lang, |_self| _self.texts().lang),
+            Pos { x: 1, y: 3 } => Button::new(Self::change_full_screen, |_self| {
                         _self.texts().full_screen
-                    })) as Box<dyn GridChildren<Win>>,
-                ),
-                (
-                    Pos { x: 1, y: 5 },
-                    Box::new(Button::new(Self::_return, |_self| _self.texts()._return))
-                        as Box<dyn GridChildren<Win>>,
-                ),
-                (
-                    Pos { x: 1, y: 7 },
-                    Box::new(Button::new(Self::quit, |_self| _self.texts().quit))
-                        as Box<dyn GridChildren<Win>>,
-                ),
-            ]),
-            vec![
-                ColType::Ratio(565.),
-                ColType::Ratio(150.),
-                ColType::Ratio(565.),
-            ],
-            vec![
-                RowType::Ratio(200.),
-                RowType::Ratio(40.),
-                RowType::Ratio(20.),
-                RowType::Ratio(40.),
-                RowType::Ratio(20.),
-                RowType::Ratio(40.),
-                RowType::Ratio(20.),
-                RowType::Ratio(40.),
-                RowType::Ratio(300.),
-            ],
+                    }),
+            Pos { x: 1, y: 5 } => Button::new(Self::_return, |_self| _self.texts()._return),
+            Pos { x: 1, y: 7 } => Button::new(Self::quit, |_self| _self.texts().quit),
         );
-        self.overlay = Grid::new(
+        self.overlay = grid!(
             self,
-            HashMap::from([
-                (
-                    Pos { x: 1, y: 1 },
-                    Box::new(Button::new(Self::menu, |_self| _self.texts().menu))
-                        as Box<dyn GridChildren<Win>>,
-                ),
-                (
-                    Pos { x: 1, y: 3 },
-                    Box::new(Button::new(Self::play, |_self| {
+            Win,
+            ColType::Ratio(1120.),
+            ColType::Ratio(150.),
+            ColType::Ratio(10.);
+            RowType::Ratio(10.),
+            RowType::Ratio(100.),
+            RowType::Ratio(500.),
+            RowType::Ratio(100.),
+            RowType::Ratio(10.);
+            Pos { x: 1, y: 1 } => Button::new(Self::menu, |_self| _self.texts().menu),
+            Pos { x: 1, y: 3 } => Button::new(Self::play, |_self| {
                         if let Some(level) = _self.level.as_ref() {
                             if level.started.is_none() {
                                 _self.texts().start
@@ -262,21 +210,7 @@ impl GameWindow for Win {
                         } else {
                             ""
                         }
-                    })) as Box<dyn GridChildren<Win>>,
-                ),
-            ]),
-            vec![
-                ColType::Ratio(1120.),
-                ColType::Ratio(150.),
-                ColType::Ratio(10.),
-            ],
-            vec![
-                RowType::Ratio(10.),
-                RowType::Ratio(100.),
-                RowType::Ratio(500.),
-                RowType::Ratio(100.),
-                RowType::Ratio(10.),
-            ],
+                    }),
         );
         self.main_menu.init(canvas)?;
         self.options.init(canvas)?;

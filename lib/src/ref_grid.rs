@@ -43,9 +43,9 @@ impl<T> RefGrid<T> {
 
     pub fn new(
         parent: *mut T,
-        elements: HashMap<Pos, *mut dyn GridChildren<T>>,
         cols: Vec<ColType>,
         rows: Vec<RowType>,
+        elements: HashMap<Pos, *mut dyn GridChildren<T>>,
     ) -> Self {
         let mut static_x = 0.;
         let mut dyn_x = 0.;
@@ -92,15 +92,24 @@ impl<T> RefGrid<T> {
 
 impl<T> UserControl for RefGrid<T> {
     fn init(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        let parent = unsafe { self.parent.as_mut().ok_or("unwrap ptr init parent refgrid")? };
+        let parent = unsafe {
+            self.parent
+                .as_mut()
+                .ok_or("unwrap ptr init parent refgrid")?
+        };
         for (_, RefGridElement { element, .. }) in self.elements.iter_mut() {
-            unsafe { element.as_mut().ok_or("unwrap ptr init refgrid")? }.grid_init(canvas, parent)?;
+            unsafe { element.as_mut().ok_or("unwrap ptr init refgrid")? }
+                .grid_init(canvas, parent)?;
         }
         Ok(())
     }
 
     fn init_frame(&mut self, canvas: &mut Canvas<Window>, surface: FRect) -> Result<(), String> {
-        let parent = unsafe { self.parent.as_mut().ok_or("unwrap ptr init_frame parent refgrid")? };
+        let parent = unsafe {
+            self.parent
+                .as_mut()
+                .ok_or("unwrap ptr init_frame parent refgrid")?
+        };
         if self.last_width != surface.width() || self.last_height != surface.height() {
             let mut p_x = surface.x();
             let mut p_y = surface.y();
@@ -140,7 +149,11 @@ impl<T> UserControl for RefGrid<T> {
     }
 
     fn event(&mut self, canvas: &mut Canvas<Window>, event: Event) -> Result<(), String> {
-        let parent = unsafe { self.parent.as_mut().ok_or("unwrap ptr event parent refgrid")? };
+        let parent = unsafe {
+            self.parent
+                .as_mut()
+                .ok_or("unwrap ptr event parent refgrid")?
+        };
         for (
             _,
             RefGridElement {
@@ -157,7 +170,11 @@ impl<T> UserControl for RefGrid<T> {
     }
 
     fn update(&mut self, canvas: &mut Canvas<Window>, elapsed: Duration) -> Result<(), String> {
-        let parent = unsafe { self.parent.as_mut().ok_or("unwrap ptr update parent refgrid")? };
+        let parent = unsafe {
+            self.parent
+                .as_mut()
+                .ok_or("unwrap ptr update parent refgrid")?
+        };
         for (_, RefGridElement { element, .. }) in self.elements.iter_mut() {
             unsafe { element.as_mut().ok_or("unwrap ptr update refgrid")? }
                 .grid_update(canvas, elapsed, parent)?;
@@ -166,9 +183,14 @@ impl<T> UserControl for RefGrid<T> {
     }
 
     fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        let parent = unsafe { self.parent.as_ref().ok_or("unwrap ptr draw parent refgrid")? };
+        let parent = unsafe {
+            self.parent
+                .as_ref()
+                .ok_or("unwrap ptr draw parent refgrid")?
+        };
         for (_, RefGridElement { element, .. }) in self.elements.iter() {
-            unsafe { element.as_ref().ok_or("unwrap ptr draw refgrid")? }.grid_draw(canvas, parent)?;
+            unsafe { element.as_ref().ok_or("unwrap ptr draw refgrid")? }
+                .grid_draw(canvas, parent)?;
         }
         Ok(())
     }
@@ -209,4 +231,16 @@ impl<K, V> GridChildren<K> for RefGrid<V> {
     fn grid_draw(&self, canvas: &mut Canvas<Window>, _: &K) -> Result<(), String> {
         self.draw(canvas)
     }
+}
+
+#[macro_export]
+macro_rules! refgrid {
+    ($self:ident, $($col:expr),*; $($row:expr),*; $($pos:expr => $child:expr),* $(,)?) => {
+        RefGrid::new(
+            $self,
+            vec![$($col),*],
+            vec![$($row),*],
+            HashMap::from([$(($pos, Box::new($child) as Box<dyn GridChildren<Win>>)),*])
+        )
+    };
 }

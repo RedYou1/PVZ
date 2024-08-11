@@ -95,6 +95,8 @@ impl GameOfLife {
         Ok(Self {
             grid: Grid::new(
                 unsafe { addr_of_mut!(STATE) },
+                (0..WIDTH).map(|_| ColType::Ratio(1.)).collect(),
+                (0..HEIGHT).map(|_| RowType::Ratio(1.)).collect(),
                 HashMap::from_iter((0..HEIGHT).flat_map(|y| {
                     (0..WIDTH).map(move |x| {
                         (
@@ -109,8 +111,6 @@ impl GameOfLife {
                         )
                     })
                 })),
-                (0..WIDTH).map(|_| ColType::Ratio(1.)).collect(),
-                (0..HEIGHT).map(|_| RowType::Ratio(1.)).collect(),
             ),
             state: State::Paused,
             running: true,

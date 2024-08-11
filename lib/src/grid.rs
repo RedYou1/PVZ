@@ -112,9 +112,9 @@ impl<T> Grid<T> {
 
     pub fn new(
         parent: *mut T,
-        elements: HashMap<Pos, Box<dyn GridChildren<T>>>,
         cols: Vec<ColType>,
         rows: Vec<RowType>,
+        elements: HashMap<Pos, Box<dyn GridChildren<T>>>,
     ) -> Self {
         let mut static_x = 0.;
         let mut dyn_x = 0.;
@@ -292,6 +292,18 @@ impl<T> Grid<T> {
     // }
 }
 
+#[macro_export]
+macro_rules! grid {
+    ($self:ident, $type:ty, $($col:expr),*; $($row:expr),*; $($pos:expr => $child:expr),* $(,)?) => {
+        Grid::new(
+            $self,
+            vec![$($col),*],
+            vec![$($row),*],
+            HashMap::from([$(($pos, Box::new($child) as Box<dyn GridChildren<$type>>)),*])
+        )
+    };
+}
+
 #[cfg(test)]
 mod grid_test {
     use sdl2::mouse::MouseButton;
@@ -344,74 +356,41 @@ mod grid_test {
     #[allow(clippy::too_many_lines)]
     fn test_grid_click() {
         let mut counter = 0;
-        let mut grid = Grid::new(
-            &mut counter,
-            HashMap::from([
-                (
-                    Pos { x: 1, y: 1 },
-                    Box::new(Grid::new(
-                        &mut counter,
-                        HashMap::from([
-                            (
-                                Pos { x: 1, y: 1 },
-                                Box::new(Button {}) as Box<dyn GridChildren<usize>>,
-                            ),
-                            (
-                                Pos { x: 3, y: 1 },
-                                Box::new(Button {}) as Box<dyn GridChildren<usize>>,
-                            ),
-                            (
-                                Pos { x: 1, y: 3 },
-                                Box::new(Button {}) as Box<dyn GridChildren<usize>>,
-                            ),
-                            (
-                                Pos { x: 3, y: 3 },
-                                Box::new(Button {}) as Box<dyn GridChildren<usize>>,
-                            ),
-                        ]),
-                        vec![
-                            ColType::Px(2.),
-                            ColType::Ratio(1.),
-                            ColType::Px(2.),
-                            ColType::Ratio(1.),
-                            ColType::Px(2.),
-                        ],
-                        vec![
-                            RowType::Px(2.),
-                            RowType::Ratio(1.),
-                            RowType::Px(2.),
-                            RowType::Ratio(1.),
-                            RowType::Px(2.),
-                        ],
-                    )) as Box<dyn GridChildren<usize>>,
+        let c = &mut counter;
+        let mut grid = grid!(
+            c,
+            usize,
+            ColType::Px(10.),
+            ColType::Ratio(1.),
+            ColType::Px(10.),
+            ColType::Ratio(1.),
+            ColType::Px(10.);
+            RowType::Px(10.),
+            RowType::Ratio(1.),
+            RowType::Px(10.),
+            RowType::Ratio(1.),
+            RowType::Px(10.);
+            Pos { x: 1, y: 1 } => grid!(
+                    c,
+                    usize,
+                    ColType::Px(2.),
+                    ColType::Ratio(1.),
+                    ColType::Px(2.),
+                    ColType::Ratio(1.),
+                    ColType::Px(2.);
+                    RowType::Px(2.),
+                    RowType::Ratio(1.),
+                    RowType::Px(2.),
+                    RowType::Ratio(1.),
+                    RowType::Px(2.);
+                    Pos { x: 1, y: 1 } => Button {},
+                    Pos { x: 3, y: 1 } => Button {},
+                    Pos { x: 1, y: 3 } => Button {},
+                    Pos { x: 3, y: 3 } => Button {}
                 ),
-                (
-                    Pos { x: 3, y: 1 },
-                    Box::new(Button {}) as Box<dyn GridChildren<usize>>,
-                ),
-                (
-                    Pos { x: 1, y: 3 },
-                    Box::new(Button {}) as Box<dyn GridChildren<usize>>,
-                ),
-                (
-                    Pos { x: 3, y: 3 },
-                    Box::new(Button {}) as Box<dyn GridChildren<usize>>,
-                ),
-            ]),
-            vec![
-                ColType::Px(10.),
-                ColType::Ratio(1.),
-                ColType::Px(10.),
-                ColType::Ratio(1.),
-                ColType::Px(10.),
-            ],
-            vec![
-                RowType::Px(10.),
-                RowType::Ratio(1.),
-                RowType::Px(10.),
-                RowType::Ratio(1.),
-                RowType::Px(10.),
-            ],
+            Pos { x: 3, y: 1 } => Button {},
+            Pos { x: 1, y: 3 } => Button {},
+            Pos { x: 3, y: 3 } => Button {},
         );
         let sdl = sdl2::init();
         assert!(sdl.is_ok());
