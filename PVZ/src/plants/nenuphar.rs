@@ -23,10 +23,10 @@ impl Plant for Nenuphar {
     }
 
     fn rect(&self, x: f32, y: f32) -> FRect {
-        FRect::new(x, y, 70., 100.)
+        FRect::new(x, y, 70. / 1280., 100. / 720.)
     }
 
-    fn update(&mut self, _: bool, _: Duration) -> Result<(), String> {
+    fn update(&mut self, _: Duration) -> Result<(), String> {
         Ok(())
     }
 

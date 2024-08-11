@@ -12,7 +12,7 @@ pub mod triple_peashooter;
 pub trait Plant {
     fn texture(&self) -> Result<&'static Texture<'static>, String>;
     fn rect(&self, x: f32, y: f32) -> FRect;
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String>;
+    fn update(&mut self, elapsed: Duration) -> Result<(), String>;
 
     fn clone(&self) -> Box<dyn Plant>;
     fn cost(&self) -> u32;

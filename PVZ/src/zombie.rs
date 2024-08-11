@@ -7,12 +7,12 @@ use crate::{projectile::DamageType, textures};
 pub fn zombie_from_id(id: u8) -> Box<dyn Zombie> {
     match id {
         0 => Box::new(ZombieBase {
-            x: 1280.,
+            x: 1.,
             health: ZombieBaseHealth::Normal.into(),
             freeze: Duration::new(0, 0),
         }),
         1 => Box::new(ZombieBase {
-            x: 1280.,
+            x: 1.,
             health: ZombieBaseHealth::Cone.into(),
             freeze: Duration::new(0, 0),
         }),
@@ -23,7 +23,7 @@ pub fn zombie_from_id(id: u8) -> Box<dyn Zombie> {
 pub trait Zombie {
     fn texture(&self) -> Result<&'static Texture<'static>, String>;
     fn rect(&self, y: f32) -> FRect;
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String>;
+    fn update(&mut self, elapsed: Duration) -> Result<(), String>;
 
     fn set_x(&mut self, x: f32);
     fn hit(
@@ -97,25 +97,23 @@ impl Zombie for ZombieBase {
         FRect::new(
             self.x,
             y,
-            55.,
+            55. / 1280.,
             match self.health.into() {
                 ZombieBaseHealth::MissingHead | ZombieBaseHealth::Normal => 137.,
                 ZombieBaseHealth::HalfCone | ZombieBaseHealth::Cone => 171.,
-            },
+            } / 720.,
         )
     }
 
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
-        if playing {
-            self.x -= elapsed.as_secs_f32() * 17.321472;
-            if !self.freeze.is_zero() {
-                if self.freeze > elapsed {
-                    self.freeze -= elapsed
-                } else {
-                    self.freeze = Duration::ZERO;
-                }
-                self.x += elapsed.as_secs_f32() * 17.321472 * 0.5;
+    fn update(&mut self, elapsed: Duration) -> Result<(), String> {
+        self.x -= elapsed.as_secs_f32() * 17.321472 / 1280.;
+        if !self.freeze.is_zero() {
+            if self.freeze > elapsed {
+                self.freeze -= elapsed
+            } else {
+                self.freeze = Duration::ZERO;
             }
+            self.x += elapsed.as_secs_f32() * 17.321472 * 0.5 / 1280.;
         }
         Ok(())
     }
@@ -126,13 +124,13 @@ impl Zombie for ZombieBase {
 
     fn hit_box(&self, y: f32) -> FRect {
         FRect::new(
-            self.x + 16.,
+            self.x + 16. / 1280.,
             y,
-            39.,
+            39. / 1280.,
             match self.health.into() {
                 ZombieBaseHealth::MissingHead | ZombieBaseHealth::Normal => 137.,
                 ZombieBaseHealth::HalfCone | ZombieBaseHealth::Cone => 171.,
-            },
+            } / 720.,
         )
     }
 

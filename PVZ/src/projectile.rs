@@ -14,7 +14,7 @@ pub enum DamageType {
 pub trait Projectile {
     fn texture(&self) -> Result<&'static Texture<'static>, String>;
     fn rect(&self, y: f32) -> FRect;
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String>;
+    fn update(&mut self, elapsed: Duration) -> Result<(), String>;
 
     fn to_remove(&self) -> bool;
     fn damage_amount(&self) -> usize;
@@ -36,14 +36,11 @@ impl Projectile for Pea {
     }
 
     fn rect(&self, y: f32) -> FRect {
-        FRect::new(self.x, y, 50., 50.)
+        FRect::new(self.x, y, 50. / 1280., 50. / 720.)
     }
 
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
-        if !playing {
-            return Ok(());
-        }
-        self.x += elapsed.as_secs_f32() * 200.;
+    fn update(&mut self, elapsed: Duration) -> Result<(), String> {
+        self.x += elapsed.as_secs_f32() * 200. / 1280.;
         Ok(())
     }
 
@@ -56,6 +53,6 @@ impl Projectile for Pea {
     }
 
     fn to_remove(&self) -> bool {
-        self.x > 1280. + self.rect(0.).width()
+        self.x > 1. + self.rect(0.).width()
     }
 }

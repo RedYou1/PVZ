@@ -20,14 +20,11 @@ impl Sun {
     }
 
     pub fn rect(&self) -> FRect {
-        FRect::new(self.x, self.y, 60., 90.)
+        FRect::new(self.x, self.y, 60. / 1280., 90. / 720.)
     }
 
-    pub fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
-        if !playing {
-            return Ok(());
-        }
-        self.y = (self.y + elapsed.as_secs_f32() * 34.642944).min(self.dist);
+    pub fn update(&mut self, elapsed: Duration) -> Result<(), String> {
+        self.y = (self.y + elapsed.as_secs_f32() * 34.642944 / 720.).min(self.dist);
         Ok(())
     }
 }

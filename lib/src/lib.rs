@@ -1,11 +1,17 @@
 extern crate sdl2;
 
+pub mod event;
 pub mod game_window;
+pub mod grid;
+pub mod ref_grid;
+pub mod user_control;
 
 use std::{thread, time};
 
+use event::Event;
 use game_window::GameWindow;
 use sdl2::pixels::Color;
+use sdl2::rect::FRect;
 use sdl2::render::Canvas;
 use sdl2::video::{Window, WindowBuilder};
 
@@ -44,7 +50,7 @@ pub fn run<
         .map_err(|e| e.to_string())?;
 
     println!("Using SDL_Renderer \"{}\"", canvas.info().name);
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
+    canvas.set_draw_color(Color::BLACK);
     // clears the canvas with the color we set in `set_draw_color`.
     canvas.clear();
     // However the canvas has not been updated to the window yet, everything has been processed to
@@ -53,14 +59,22 @@ pub fn run<
     canvas.present();
 
     let mut game = func(&mut canvas)?;
+    game.init(&mut canvas)?;
 
     let mut update_time = time::Instant::now();
     let mut event_pump = sdl_context.event_pump()?;
     while game.running() {
         let now = time::Instant::now();
+        let (width, height) = canvas.window().size();
+        let (width, height) = (width as f32, height as f32);
+
+        game.init_frame(&mut canvas, width, height)?;
 
         for event in event_pump.poll_iter() {
-            game.event(&mut canvas, event)?;
+            let event: Event = event.into();
+            if let Some(event) = event.hover(FRect::new(0., 0., width, height)) {
+                game.event(&mut canvas, event)?;
+            }
         }
 
         let now_update = time::Instant::now();

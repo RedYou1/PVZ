@@ -1,16 +1,19 @@
-use std::time::Duration;
-
-use sdl2::{
+use sdl::{
     event::Event,
+    game_window::GameWindow,
+    grid::{ColType, Grid, GridChildren, Pos, RowType},
+    user_control::UserControl,
+};
+use sdl2::{
     keyboard::Keycode,
-    mouse::MouseButton,
     pixels::Color,
-    rect::{Point, Rect},
+    rect::{FRect, Point},
     render::{Canvas, Texture, TextureCreator},
     video::{Window, WindowContext},
 };
+use std::{collections::HashMap, ptr::addr_of_mut, time::Duration};
 
-use sdl::game_window::GameWindow;
+use crate::{case::Case, clock, next_clock, reset_clock, set_state, states, HEIGHT, WIDTH};
 
 pub const SQUARE_SIZE: usize = 16;
 
@@ -74,92 +77,44 @@ fn dummy_texture<'a>(
     Ok((square_texture1, square_texture2))
 }
 
-pub struct GameOfLife<const WIDTH: usize, const HEIGHT: usize> {
-    texture1: Texture<'static>,
-    texture2: Texture<'static>,
-    clock: u8,
-    playground: [[bool; WIDTH]; HEIGHT],
+pub struct GameOfLife {
+    grid: Grid<()>,
     state: State,
-    pressing: Option<bool>,
     running: bool,
 }
 
-impl<const WIDTH: usize, const HEIGHT: usize> GameOfLife<WIDTH, HEIGHT> {
+static mut STATE: () = ();
+
+impl GameOfLife {
     pub fn new(canvas: &mut Canvas<Window>) -> Result<Self, String> {
         // Create a "target" texture so that we can use our Renderer with it later
         let (texture1, texture2) =
             dummy_texture(canvas, Box::leak(Box::new(canvas.texture_creator())))?;
-
+        let texture1: &'static Texture<'static> = Box::leak(Box::new(texture1));
+        let texture2: &'static Texture<'static> = Box::leak(Box::new(texture2));
         Ok(Self {
-            texture1,
-            texture2,
-            clock: 0,
-            playground: [[false; WIDTH]; HEIGHT],
+            grid: Grid::new(
+                unsafe { addr_of_mut!(STATE) },
+                HashMap::from_iter((0..HEIGHT).flat_map(|y| {
+                    (0..WIDTH).map(move |x| {
+                        (
+                            Pos { x, y },
+                            Box::new(Case {
+                                x,
+                                y,
+                                texture1,
+                                texture2,
+                                surface: FRect::new(0., 0., 0., 0.),
+                            }) as Box<dyn GridChildren<()>>,
+                        )
+                    })
+                })),
+                (0..WIDTH).map(|_| ColType::Ratio(1.)).collect(),
+                (0..HEIGHT).map(|_| RowType::Ratio(1.)).collect(),
+            ),
             state: State::Paused,
-            pressing: None,
             running: true,
         })
-    }
-
-    pub const fn width(&self) -> usize {
-        WIDTH
-    }
-
-    pub const fn height(&self) -> usize {
-        HEIGHT
-    }
-
-    pub const fn get(&self, x: usize, y: usize) -> Option<bool> {
-        if x < WIDTH && y < HEIGHT {
-            Some(self.playground[y][x])
-        } else {
-            None
-        }
-    }
-
-    pub fn set(
-        &mut self,
-        canvas: &mut Canvas<Window>,
-        x: usize,
-        y: usize,
-        value: bool,
-    ) -> Result<(), String> {
-        if x < WIDTH && y < HEIGHT {
-            self.playground[y][x] = value;
-            if value {
-                self.set_text(x, y, canvas)?;
-            } else {
-                Self::reset_text(x, y, canvas)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn reset_text(x: usize, y: usize, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        canvas.set_draw_color(Color::RGB(0, 0, 0));
-        canvas.fill_rect(Rect::new(
-            (x * SQUARE_SIZE) as i32,
-            (y * SQUARE_SIZE) as i32,
-            SQUARE_SIZE as u32,
-            SQUARE_SIZE as u32,
-        ))
-    }
-
-    fn set_text(&self, x: usize, y: usize, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        canvas.copy(
-            if self.clock == 15 {
-                &self.texture1
-            } else {
-                &self.texture2
-            },
-            None,
-            Rect::new(
-                (x * SQUARE_SIZE) as i32,
-                (y * SQUARE_SIZE) as i32,
-                SQUARE_SIZE as u32,
-                SQUARE_SIZE as u32,
-            ),
-        )
     }
 
     pub fn toggle_state(&mut self) {
@@ -173,12 +128,8 @@ impl<const WIDTH: usize, const HEIGHT: usize> GameOfLife<WIDTH, HEIGHT> {
         self.state
     }
 
-    pub const fn playground(&self) -> &[[bool; WIDTH]; HEIGHT] {
-        &self.playground
-    }
-
-    pub fn change_color(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        let new_playground = self.playground;
+    pub fn next_step(&mut self) -> Result<(), String> {
+        let new_playground = *states();
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 let mut count: u32 = 0;
@@ -197,73 +148,36 @@ impl<const WIDTH: usize, const HEIGHT: usize> GameOfLife<WIDTH, HEIGHT> {
                 }
                 match count {
                     ..=1 | 4.. => {
-                        self.playground[y][x] = false;
-                        Self::reset_text(x, y, canvas)?;
+                        set_state(false, x, y);
                     }
                     2 => {}
                     3 => {
-                        self.playground[y][x] = true;
-                        self.set_text(x, y, canvas)?;
+                        set_state(true, x, y);
                     }
                 };
             }
         }
         Ok(())
     }
-
-    fn click_square(
-        &mut self,
-        canvas: &mut Canvas<Window>,
-        x: usize,
-        y: usize,
-    ) -> Result<(), String> {
-        let x = x / SQUARE_SIZE;
-        let y = y / SQUARE_SIZE;
-        if let Some(state) = self.pressing {
-            self.set(canvas, x, y, state)?;
-        }
-        Ok(())
-    }
 }
 
-impl<const WIDTH: usize, const HEIGHT: usize> GameWindow for GameOfLife<WIDTH, HEIGHT> {
+impl GameWindow for GameOfLife {
     fn running(&mut self) -> bool {
         self.running
     }
 
-    fn update(&mut self, canvas: &mut Canvas<Window>, _: Duration) -> Result<(), String> {
-        if let State::Paused = self.state {
-            return Ok(());
-        }
+    fn init(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+        self.grid.init(canvas)
+    }
 
-        self.clock += 1;
-        if self.clock >= 30 {
-            self.change_color(canvas)?;
-            self.clock = 0;
-        }
-        if self.clock == 0 || self.clock == 15 {
-            for (y, row) in self.playground.iter().enumerate() {
-                for (x, state) in row.iter().enumerate() {
-                    if *state {
-                        canvas.copy(
-                            if self.clock == 15 {
-                                &self.texture1
-                            } else {
-                                &self.texture2
-                            },
-                            None,
-                            Rect::new(
-                                (x * SQUARE_SIZE) as i32,
-                                (y * SQUARE_SIZE) as i32,
-                                SQUARE_SIZE as u32,
-                                SQUARE_SIZE as u32,
-                            ),
-                        )?;
-                    }
-                }
-            }
-        }
-        Ok(())
+    fn init_frame(
+        &mut self,
+        canvas: &mut Canvas<Window>,
+        width: f32,
+        height: f32,
+    ) -> Result<(), String> {
+        self.grid
+            .init_frame(canvas, FRect::new(0., 0., width, height))
     }
 
     fn event(&mut self, canvas: &mut Canvas<Window>, event: Event) -> Result<(), String> {
@@ -280,42 +194,27 @@ impl<const WIDTH: usize, const HEIGHT: usize> GameWindow for GameOfLife<WIDTH, H
             } => {
                 self.toggle_state();
             }
-            Event::MouseButtonDown {
-                mouse_btn: MouseButton::Left,
-                x,
-                y,
-                ..
-            } => {
-                if x >= 0 && y >= 0 {
-                    self.pressing = Some(true);
-                    self.click_square(canvas, x as usize, y as usize)?;
-                }
-            }
-            Event::MouseButtonDown {
-                mouse_btn: MouseButton::Right,
-                x,
-                y,
-                ..
-            } => {
-                if x >= 0 && y >= 0 {
-                    self.pressing = Some(false);
-                    self.click_square(canvas, x as usize, y as usize)?;
-                }
-            }
-            Event::MouseButtonUp { .. } => {
-                self.pressing = None;
-            }
-            Event::MouseMotion { x, y, .. } => {
-                if x >= 0 && y >= 0 {
-                    self.click_square(canvas, x as usize, y as usize)?;
-                }
-            }
             _ => {}
         }
-        Ok(())
+        self.grid.event(canvas, event)
     }
 
-    fn draw(&self, _: &mut Canvas<Window>) -> Result<(), String> {
-        Ok(())
+    fn update(&mut self, canvas: &mut Canvas<Window>, elapsed: Duration) -> Result<(), String> {
+        if let State::Paused = self.state {
+            return Ok(());
+        }
+
+        next_clock();
+        if clock() >= 30 {
+            self.next_step()?;
+            reset_clock();
+        }
+        self.grid.update(canvas, elapsed)
+    }
+
+    fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+        canvas.set_draw_color(Color::BLACK);
+        canvas.clear();
+        self.grid.draw(canvas)
     }
 }

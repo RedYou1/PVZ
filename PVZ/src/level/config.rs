@@ -1,11 +1,20 @@
 use rand::Rng;
+use sdl::grid::Grid;
+use sdl2::rect::FRect;
 use std::{
     fs,
     io::{self},
     time::Duration,
 };
 
-use crate::{shop::Shop, zombie::zombie_from_id};
+use crate::{
+    plants::{
+        nenuphar::Nenuphar, peashooter::PeaShooter, sunflower::Sunflower,
+        triple_peashooter::PlantTriple,
+    },
+    projectile::DamageType,
+    zombie::zombie_from_id,
+};
 
 use super::Level;
 
@@ -17,10 +26,10 @@ pub enum RowType {
 pub struct LevelConfig {
     pub map: u8,
 
-    pub top: u16,
-    pub left: u16,
-    pub width: u16,
-    pub height: u16,
+    pub top: f32,
+    pub left: f32,
+    pub width: f32,
+    pub height: f32,
 
     pub rows: Vec<RowType>,
     pub cols: u8,
@@ -31,36 +40,34 @@ pub struct LevelConfig {
 }
 
 impl LevelConfig {
-    pub const fn coord_to_pos_x(&self, x: f32) -> Option<usize> {
-        let x = x as usize;
-        if x < self.left as usize || x >= self.left as usize + self.width as usize {
+    pub fn coord_to_pos_x(&self, x: f32) -> Option<usize> {
+        if x < self.left || x >= self.left + self.width {
             None
         } else {
-            Some((x - self.left as usize) * self.cols as usize / self.width as usize)
+            Some(((x - self.left) * self.cols as f32 / self.width) as usize)
         }
     }
     pub fn coord_to_pos_y(&self, y: f32) -> Option<usize> {
-        let y = y as usize;
-        if y < self.top as usize || y >= self.top as usize + self.height as usize {
+        if y < self.top || y >= self.top + self.height {
             None
         } else {
-            Some((y - self.top as usize) * self.rows.len() / self.height as usize)
+            Some(((y - self.top) * self.rows.len() as f32 / self.height) as usize)
         }
     }
 
     pub fn pos_to_coord_x(&self, x: usize) -> f32 {
-        x as f32 * self.width as f32 / self.cols as f32 + self.left as f32
+        x as f32 * self.width / self.cols as f32 + self.left
     }
     pub fn pos_to_coord_y(&self, y: usize) -> f32 {
-        y as f32 * self.height as f32 / self.rows.len() as f32 + self.top as f32
+        y as f32 * self.height / self.rows.len() as f32 + self.top
     }
 
     pub fn row_heigth(&self) -> f32 {
-        self.height as f32 / self.rows.len() as f32
+        self.height / self.rows.len() as f32
     }
 
     pub fn col_width(&self) -> f32 {
-        self.width as f32 / self.cols as f32
+        self.width / self.cols as f32
     }
 
     pub fn load_config(level: u8) -> std::io::Result<Level> {
@@ -69,10 +76,30 @@ impl LevelConfig {
         let map = level_data.remove(0);
 
         let mut map_data = fs::read(format!("assets/maps/{map}.data"))?;
-        let top = u16::from_le_bytes([map_data.remove(0), map_data.remove(0)]);
-        let left = u16::from_le_bytes([map_data.remove(0), map_data.remove(0)]);
-        let width = u16::from_le_bytes([map_data.remove(0), map_data.remove(0)]);
-        let height = u16::from_le_bytes([map_data.remove(0), map_data.remove(0)]);
+        let top = f32::from_le_bytes([
+            map_data.remove(0),
+            map_data.remove(0),
+            map_data.remove(0),
+            map_data.remove(0),
+        ]);
+        let left = f32::from_le_bytes([
+            map_data.remove(0),
+            map_data.remove(0),
+            map_data.remove(0),
+            map_data.remove(0),
+        ]);
+        let width = f32::from_le_bytes([
+            map_data.remove(0),
+            map_data.remove(0),
+            map_data.remove(0),
+            map_data.remove(0),
+        ]);
+        let height = f32::from_le_bytes([
+            map_data.remove(0),
+            map_data.remove(0),
+            map_data.remove(0),
+            map_data.remove(0),
+        ]);
         let rows = map_data.remove(0);
         let cols = map_data.remove(0);
         let rows_types = (0..rows)
@@ -96,9 +123,9 @@ impl LevelConfig {
             .map(|secs| Duration::from_secs(secs as u64))
             .collect();
 
-        let min_x = left as f32 + width as f32 - 305.;
-        let min_y = top as f32 + height as f32 / rows as f32;
-        let max_y = top as f32 + height as f32;
+        let min_x = left + width - 305. / 1280.;
+        let min_y = top + height / rows as f32;
+        let max_y = top + height;
         let zombies = (0..waves)
             .map(|_| {
                 let types = level_data.remove(0).into();
@@ -116,12 +143,14 @@ impl LevelConfig {
         }
 
         Ok(Level {
-            showing_zombies: true,
+            started: None,
+            surface: FRect::new(0., 0., 0., 0.),
             suns: Vec::with_capacity(4),
             next_sun: Duration::new(5, 0),
             plants: (0..rows)
                 .map(|_| (0..cols).map(|_| None).collect())
                 .collect(),
+            map_plants: unsafe { Grid::empty() },
             zombies: (0..rows).map(|_| Vec::with_capacity(16)).collect(),
             projectiles: (0..rows).map(|_| Vec::with_capacity(4)).collect(),
             config: LevelConfig {
@@ -135,7 +164,16 @@ impl LevelConfig {
                 waits,
                 zombies,
             },
-            shop: Shop::new(money),
+            shop_plants: vec![
+                Box::new(Nenuphar::new()),
+                Box::new(Sunflower::new()),
+                Box::new(PeaShooter::new(DamageType::Normal)),
+                Box::new(PeaShooter::new(DamageType::Ice)),
+                Box::new(PeaShooter::new(DamageType::Fire)),
+                Box::new(PlantTriple::new()),
+            ],
+            dragging: None,
+            money,
             end: None,
         })
     }
@@ -157,7 +195,7 @@ fn generate_zombies_wave(
                 .map(|_| {
                     (
                         bytes[0],
-                        rng.gen_range((min_x)..(1280. - width)),
+                        rng.gen_range((min_x)..(1. - width)),
                         rng.gen_range((min_y - height)..(max_y - height)),
                     )
                 })

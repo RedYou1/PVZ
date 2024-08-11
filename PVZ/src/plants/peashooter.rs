@@ -36,13 +36,11 @@ impl Plant for PeaShooter {
     }
 
     fn rect(&self, x: f32, y: f32) -> FRect {
-        FRect::new(x, y, 70., 100.)
+        FRect::new(x, y, 70. / 1280., 100. / 720.)
     }
 
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
-        if playing {
-            self.charge += elapsed;
-        }
+    fn update(&mut self, elapsed: Duration) -> Result<(), String> {
+        self.charge += elapsed;
         Ok(())
     }
 
@@ -89,7 +87,7 @@ impl Plant for PeaShooter {
                 vec![(
                     y,
                     Box::new(Pea {
-                        x: x - 25.,
+                        x: x - 25. / 1280.,
                         damage_type: self.damage_type,
                     }),
                 )],

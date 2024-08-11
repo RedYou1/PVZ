@@ -25,13 +25,11 @@ impl Plant for Sunflower {
     }
 
     fn rect(&self, x: f32, y: f32) -> FRect {
-        FRect::new(x, y, 70., 100.)
+        FRect::new(x, y, 70. / 1280., 100. / 720.)
     }
 
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
-        if playing {
-            self.charge += elapsed;
-        }
+    fn update(&mut self, elapsed: Duration) -> Result<(), String> {
+        self.charge += elapsed;
         Ok(())
     }
 
@@ -65,7 +63,10 @@ impl Plant for Sunflower {
     ) -> (Vec<Sun>, Vec<(usize, Box<dyn Projectile>)>) {
         if self.charge >= Duration::from_millis(24000) {
             self.charge -= Duration::from_millis(24000);
-            return (vec![Sun::new(x, y - 50., y + 50.)], Vec::new());
+            return (
+                vec![Sun::new(x, y - 50. / 720., y + 50. / 720.)],
+                Vec::new(),
+            );
         }
         (Vec::new(), Vec::new())
     }

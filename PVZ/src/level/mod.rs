@@ -1,14 +1,17 @@
 use config::LevelConfig;
-use sdl2::{
+use sdl::{
     event::Event,
+    grid::{ColType, Grid, GridChildren, Pos, RowType},
+    user_control::UserControl,
+};
+use sdl2::{
     keyboard::Keycode,
     mouse::MouseButton,
-    pixels::Color,
-    rect::{FPoint, Rect},
+    rect::{FPoint, FRect, Rect},
     render::Canvas,
     video::Window,
 };
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 mod collision;
 pub mod config;
@@ -16,72 +19,218 @@ mod draws;
 mod updates;
 
 use crate::{
-    into_rect,
+    button::Button,
+    map_plant::MapPlant,
     plants::Plant,
     projectile::Projectile,
-    save::SaveFile,
-    shop::Shop,
+    scale,
+    shop_plant::ShopPlant,
     sun::Sun,
     textures::{self, draw_string},
+    win::Win,
     zombie::{zombie_from_id, Zombie},
 };
 
 pub struct Level {
-    pub showing_zombies: bool,
+    pub started: Option<Grid<Level>>,
+    pub surface: FRect,
     pub suns: Vec<Sun>,
     pub next_sun: Duration,
     pub plants: Vec<Vec<Option<Box<dyn Plant>>>>,
+    pub map_plants: Grid<Level>,
     pub zombies: Vec<Vec<Box<dyn Zombie>>>,
     pub projectiles: Vec<Vec<Box<dyn Projectile>>>,
     pub config: LevelConfig,
-    pub shop: Shop,
+    pub shop_plants: Vec<Box<dyn Plant>>,
+    pub dragging: Option<(f32, f32, Box<dyn Plant>)>,
+    pub money: u32,
     pub end: Option<bool>,
 }
 
 impl Level {
-    pub fn event(
+    fn take_plant(&mut self, plant: &dyn Plant, x: f32, y: f32) {
+        if self.dragging.is_none() {
+            self.dragging = Some((x, y, plant.clone()));
+        }
+    }
+
+    fn drop_plant(&mut self, x: f32, y: f32) {
+        if let Some((_, _, plant)) = self.dragging.as_ref() {
+            if self.money >= plant.cost() {
+                if let Some(x) = self.config.coord_to_pos_x(x / self.surface.width()) {
+                    if let Some(y) = self.config.coord_to_pos_y(y / self.surface.height()) {
+                        match self.config.rows[y] {
+                            config::RowType::Grass => {
+                                if !plant.is_nenuphar() && self.plants[y][x].is_none() {
+                                    self.money -= plant.cost();
+                                    self.plants[y][x] = Some(plant.as_ref().clone());
+                                }
+                            }
+                            config::RowType::Water => {
+                                if plant.can_go_in_water() {
+                                    if self.plants[y][x].is_none() {
+                                        self.money -= plant.cost();
+                                        self.plants[y][x] = Some(plant.as_ref().clone());
+                                    }
+                                } else if let Some(p) = self.plants[y][x].as_mut() {
+                                    if p.is_nenuphar() {
+                                        self.money -= plant.cost();
+                                        *p = plant.as_ref().clone();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            self.dragging = None;
+        }
+    }
+
+    pub fn start(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+        let _self = self as *mut Self;
+        if self.started.is_some() {
+            return Ok(());
+        }
+        let mut rows: Vec<RowType> = self
+            .shop_plants
+            .iter()
+            .flat_map(|_| [RowType::Ratio(132.5), RowType::Ratio(10.)])
+            .collect();
+        rows.insert(0, RowType::Ratio(10.));
+        let moneyid = rows.len();
+        rows.push(RowType::Ratio(37.5));
+        let remain: f32 = rows
+            .iter()
+            .map(|r| if let RowType::Ratio(p) = r { *p } else { 0. })
+            .sum();
+        if remain < 1280. {
+            rows.push(RowType::Ratio(1280. - remain));
+        }
+
+        let mut element =
+            HashMap::from_iter(self.shop_plants.iter().enumerate().map(|(i, plant)| {
+                (
+                    Pos { x: 1, y: i * 2 + 1 },
+                    Box::new(ShopPlant::new(Self::take_plant, plant.as_ref().clone()))
+                        as Box<dyn GridChildren<Level>>,
+                )
+            }));
+        element.insert(
+            Pos { x: 1, y: moneyid },
+            Box::new(Button::new(
+                |_, _, _, _| Ok(()),
+                |_self: &Level| format!("{}$", _self.money),
+            )) as Box<dyn GridChildren<Level>>,
+        );
+        let mut shop = Grid::new(
+            self,
+            element,
+            vec![
+                ColType::Ratio(10.),
+                ColType::Ratio(100.),
+                ColType::Ratio(1150.),
+            ],
+            rows,
+        );
+        shop.init(canvas)?;
+        shop.init_frame(canvas, self.surface)?;
+        self.started = Some(shop);
+        Ok(())
+    }
+}
+
+impl GridChildren<Win> for Level {
+    fn grid_init(&mut self, canvas: &mut Canvas<Window>, _: &mut Win) -> Result<(), String> {
+        let _self = self as *mut Self;
+        let mut cols: Vec<ColType> = (0..self.config.cols)
+            .flat_map(|_| {
+                [
+                    ColType::Ratio(5. / 1280.),
+                    ColType::Ratio(self.config.col_width() - 10. / 1280.),
+                    ColType::Ratio(5. / 1280.),
+                ]
+            })
+            .collect();
+        cols.insert(0, ColType::Ratio(self.config.left));
+        cols.push(ColType::Ratio(1. - self.config.left - self.config.width));
+        let mut rows: Vec<RowType> = (0..self.config.rows.len())
+            .flat_map(|_| {
+                [
+                    RowType::Ratio(5. / 720.),
+                    RowType::Ratio(self.config.row_heigth() - 10. / 720.),
+                    RowType::Ratio(5. / 720.),
+                ]
+            })
+            .collect();
+        rows.insert(0, RowType::Ratio(self.config.top));
+        rows.push(RowType::Ratio(1. - self.config.top - self.config.height));
+        let rows_type = self.config.rows.clone();
+        let rows_type: &[config::RowType] = rows_type.as_ref();
+        self.map_plants = Grid::new(
+            self,
+            HashMap::from_iter(self.plants.iter().enumerate().flat_map(|(y, plants)| {
+                plants.iter().enumerate().map(move |(x, plant)| {
+                    (
+                        Pos {
+                            x: x * 3 + 2,
+                            y: y * 3 + 2,
+                        },
+                        Box::new(MapPlant {
+                            row_type: rows_type[y],
+                            plant,
+                            surface: FRect::new(0., 0., 0., 0.),
+                        }) as Box<dyn GridChildren<Level>>,
+                    )
+                })
+            })),
+            cols,
+            rows,
+        );
+        self.map_plants.grid_init(canvas, unsafe {
+            _self.as_mut().ok_or("unwrap ptr init level")?
+        })
+    }
+
+    fn grid_init_frame(
+        &mut self,
+        canvas: &mut Canvas<Window>,
+        surface: FRect,
+        _: &mut Win,
+    ) -> Result<(), String> {
+        if self.surface != surface {
+            //TODO
+            self.surface = surface;
+        }
+        if let Some(started) = self.started.as_mut() {
+            started.init_frame(canvas, self.surface)?;
+        }
+        self.map_plants.init_frame(canvas, surface)
+    }
+
+    fn grid_event(
         &mut self,
         canvas: &mut Canvas<Window>,
         event: Event,
-        pause: &mut bool,
+        _: &mut Win,
     ) -> Result<(), String> {
-        let (width, height) = canvas.output_size()?;
-        let scale_x = |x: i32| x as f32 * 1280. / width as f32;
-        let scale_y = |y: i32| y as f32 * 720. / height as f32;
-
         match event {
             Event::KeyDown {
                 keycode: Some(Keycode::Space),
                 ..
             } => {
-                self.showing_zombies = false;
-            }
-            Event::MouseButtonUp {
-                mouse_btn: MouseButton::Left,
-                x,
-                y,
-                ..
-            } => {
-                let x = scale_x(x);
-                let y = scale_y(y);
-                if (1120.0..=1260.0).contains(&x) && (10.0..=50.0).contains(&y) {
-                    *pause = !*pause;
-                } else if self.showing_zombies
-                    && (1070.0..=1270.0).contains(&x)
-                    && (670.0..=710.0).contains(&y)
-                {
-                    self.showing_zombies = false;
-                }
+                self.start(canvas)?;
             }
             Event::MouseMotion { x, y, .. } => {
-                let x = scale_x(x);
-                let y = scale_y(y);
                 for i in self
                     .suns
                     .iter()
                     .enumerate()
                     .filter_map(|(i, sun)| {
-                        if sun.rect().contains_point(FPoint::new(x, y)) {
+                        if sun.rect().contains_point(FPoint::new(
+                            x / self.surface.width(),
+                            y / self.surface.height(),
+                        )) {
                             Some(i)
                         } else {
                             None
@@ -90,73 +239,39 @@ impl Level {
                     .rev()
                     .collect::<Vec<usize>>()
                 {
-                    self.shop.money += 25;
+                    self.money += 25;
                     self.suns.remove(i);
                 }
+                if let Some(plant) = self.dragging.as_mut() {
+                    plant.0 = x / self.surface.width();
+                    plant.1 = y / self.surface.height();
+                }
+            }
+            Event::MouseButtonUp {
+                mouse_btn: MouseButton::Left,
+                x,
+                y,
+                ..
+            } => {
+                self.drop_plant(x, y);
             }
             _ => {}
         }
 
-        self.shop
-            .event(&self.config, self.plants.as_mut(), canvas, event)?;
+        if let Some(started) = self.started.as_mut() {
+            started.event(canvas, event.clone())?;
+        }
+        self.map_plants.event(canvas, event)?;
         Ok(())
     }
 
-    pub fn draw(&self, canvas: &mut Canvas<Window>, save: &SaveFile) -> Result<(), String> {
-        canvas.copy(
-            &textures::textures()?.maps[self.config.map as usize],
-            Some(Rect::new(
-                if self.showing_zombies { 238 } else { 0 },
-                0,
-                762,
-                429,
-            )),
-            Rect::new(0, 0, 1280, 720),
-        )?;
-
-        if self.showing_zombies {
-            let mut t: Vec<&(u8, f32, f32)> = self.config.zombies.iter().flatten().collect();
-            t.sort_by(|(_, _, y1), (_, _, y2)| y1.total_cmp(y2));
-            for &(z, x, y) in t {
-                let mut z = zombie_from_id(z);
-                z.set_x(x);
-                canvas.copy(z.texture()?, None, into_rect(z.rect(y)))?;
-            }
-
-            canvas.set_draw_color(Color::BLACK);
-            canvas.fill_rect(Rect::new(1120, 10, 150, 40))?;
-            draw_string(canvas, Rect::new(1120, 10, 150, 40), save.texts().menu)?;
-            canvas.fill_rect(Rect::new(1070, 670, 200, 40))?;
-            draw_string(canvas, Rect::new(1070, 670, 200, 40), save.texts().start)?;
-            return Ok(());
-        }
-
-        self.draw_plants(canvas)?;
-        self.draw_zombies(canvas)?;
-        self.draw_projectiles(canvas)?;
-        if !self.showing_zombies {
-            self.shop.draw(canvas, &self.config)?;
-        }
-        self.draw_suns(canvas)?;
-        if let Some(end) = self.end {
-            draw_string(
-                canvas,
-                Rect::new(320, 180, 640, 540),
-                if end {
-                    save.texts().win
-                } else {
-                    save.texts().lost
-                },
-            )?;
-        }
-        canvas.set_draw_color(Color::BLACK);
-        canvas.fill_rect(Rect::new(1120, 10, 150, 40))?;
-        draw_string(canvas, Rect::new(1120, 10, 150, 40), save.texts().menu)?;
-        Ok(())
-    }
-
-    pub fn update(&mut self, _: &mut Canvas<Window>, elapsed: Duration) -> Result<(), String> {
-        if self.showing_zombies {
+    fn grid_update(
+        &mut self,
+        canvas: &mut Canvas<Window>,
+        elapsed: Duration,
+        _: &mut Win,
+    ) -> Result<(), String> {
+        if self.started.is_none() {
             return Ok(());
         }
         if self.end.is_some() {
@@ -167,8 +282,9 @@ impl Level {
             return Ok(());
         }
         for plant in self.plants.iter_mut().flatten().flatten() {
-            plant.update(!self.showing_zombies, elapsed)?;
+            plant.update(elapsed)?;
         }
+        self.map_plants.update(canvas, elapsed)?;
         self.update_zombies(elapsed)?;
         if let Some(false) = self.end {
             return Ok(());
@@ -177,6 +293,66 @@ impl Level {
         self.update_suns(elapsed)?;
         self.spawn_projectiles();
         self.update_zombie_wave(elapsed);
+        if let Some(started) = self.started.as_mut() {
+            started.update(canvas, elapsed)?;
+        }
+        Ok(())
+    }
+
+    fn grid_draw(&self, canvas: &mut Canvas<Window>, parent: &Win) -> Result<(), String> {
+        canvas.copy(
+            &textures::textures()?.maps[self.config.map as usize],
+            Some(Rect::new(
+                if self.started.is_none() { 238 } else { 0 },
+                0,
+                762,
+                429,
+            )),
+            None,
+        )?;
+
+        if let Some(started) = self.started.as_ref() {
+            self.map_plants.draw(canvas)?;
+            self.draw_zombies(canvas)?;
+            self.draw_projectiles(canvas)?;
+            started.draw(canvas)?;
+            self.draw_suns(canvas)?;
+            if let Some(end) = self.end {
+                draw_string(
+                    canvas,
+                    scale(self.surface, FRect::new(0.25, 0.25, 0.5, 0.5)),
+                    if end {
+                        parent.texts().win
+                    } else {
+                        parent.texts().lost
+                    },
+                )?;
+            }
+            if let Some((x, y, plant)) = self.dragging.as_ref() {
+                canvas.copy_f(
+                    plant.texture()?,
+                    None,
+                    scale(
+                        self.surface,
+                        FRect::new(
+                            x - (self.config.col_width() - 10. / 1280.) / 2.,
+                            y - (self.config.row_heigth() - 10. / 720.) / 2.,
+                            self.config.col_width() - 10. / 1280.,
+                            self.config.row_heigth() - 10. / 720.,
+                        ),
+                    ),
+                )?;
+            }
+            return Ok(());
+        }
+
+        let mut t: Vec<&(u8, f32, f32)> = self.config.zombies.iter().flatten().collect();
+        t.sort_by(|(_, _, y1), (_, _, y2)| y1.total_cmp(y2));
+        for &(z, x, y) in t {
+            let mut z = zombie_from_id(z);
+            z.set_x(x);
+            canvas.copy_f(z.texture()?, None, scale(self.surface, z.rect(y)))?;
+        }
         Ok(())
     }
 }

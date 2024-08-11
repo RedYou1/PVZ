@@ -1,7 +1,7 @@
 use sdl2::{
     image::LoadTexture,
     pixels::Color,
-    rect::Rect,
+    rect::FRect,
     render::{BlendMode, Canvas, Texture, TextureCreator},
     ttf::{self, Font},
     video::{Window, WindowContext},
@@ -38,11 +38,13 @@ pub struct Textures {
 }
 
 pub fn textures() -> Result<&'static Textures, String> {
-    TEXTURES.get().ok_or("Didn't loaded the textures".to_owned())
+    TEXTURES
+        .get()
+        .ok_or("Didn't loaded the textures".to_owned())
 }
 
-pub fn draw_string(canvas: &mut Canvas<Window>, to: Rect, text: &str) -> Result<(), String> {
-    canvas.copy(
+pub fn draw_string(canvas: &mut Canvas<Window>, to: FRect, text: &str) -> Result<(), String> {
+    canvas.copy_f(
         &canvas
             .texture_creator()
             .create_texture_from_surface(

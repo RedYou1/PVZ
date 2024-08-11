@@ -30,13 +30,11 @@ impl Plant for PlantTriple {
     }
 
     fn rect(&self, x: f32, y: f32) -> FRect {
-        FRect::new(x, y, 70., 100.)
+        FRect::new(x, y, 70. / 1280., 100. / 720.)
     }
 
-    fn update(&mut self, playing: bool, elapsed: Duration) -> Result<(), String> {
-        if playing {
-            self.charge += elapsed;
-        }
+    fn update(&mut self, elapsed: Duration) -> Result<(), String> {
+        self.charge += elapsed;
         Ok(())
     }
 
@@ -96,7 +94,7 @@ fn new_pea(x: f32, y: usize) -> (usize, Box<dyn Projectile>) {
     (
         y,
         Box::new(Pea {
-            x: x - 25.,
+            x: x - 25. / 1280.,
             damage_type: DamageType::Normal,
         }),
     )
