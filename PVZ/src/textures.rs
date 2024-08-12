@@ -1,6 +1,5 @@
 use sdl2::{
     image::LoadTexture,
-    pixels::Color,
     rect::FRect,
     render::{BlendMode, Canvas, Texture, TextureCreator},
     ttf::{self, Font},
@@ -44,20 +43,7 @@ pub fn textures() -> Result<&'static Textures, String> {
 }
 
 pub fn draw_string(canvas: &mut Canvas<Window>, to: FRect, text: &str) -> Result<(), String> {
-    canvas.copy_f(
-        &canvas
-            .texture_creator()
-            .create_texture_from_surface(
-                textures()?
-                    .font
-                    .render(text)
-                    .blended(Color::WHITE)
-                    .map_err(|e| e.to_string())?,
-            )
-            .map_err(|e| e.to_string())?,
-        None,
-        to,
-    )
+    sdl::draw_string(canvas, &textures()?.font, to, text)
 }
 
 fn freezed(

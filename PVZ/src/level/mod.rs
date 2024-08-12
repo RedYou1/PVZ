@@ -1,7 +1,9 @@
 use config::LevelConfig;
 use sdl::{
+    button::Button,
     event::Event,
     grid::{ColType, Grid, GridChildren, Pos, RowType},
+    scale,
     user_control::UserControl,
 };
 use sdl2::{
@@ -19,14 +21,12 @@ mod draws;
 mod updates;
 
 use crate::{
-    button::Button,
     map_plant::MapPlant,
     plants::Plant,
     projectile::Projectile,
-    scale,
     shop_plant::ShopPlant,
     sun::Sun,
-    textures::{self, draw_string},
+    textures::{self, draw_string, textures},
     win::Win,
     zombie::{zombie_from_id, Zombie},
 };
@@ -119,6 +119,7 @@ impl Level {
         element.insert(
             Pos { x: 1, y: moneyid },
             Box::new(Button::new(
+                &textures()?.font,
                 |_, _, _, _| Ok(()),
                 |_self: &Level| format!("{}$", _self.money),
             )) as Box<dyn GridChildren<Level>>,

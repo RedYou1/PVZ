@@ -293,7 +293,7 @@ impl<T> Grid<T> {
 }
 
 #[macro_export]
-macro_rules! grid {
+macro_rules! simple_grid {
     ($self:ident, $type:ty, $($col:expr),*; $($row:expr),*; $($pos:expr => $child:expr),* $(,)?) => {
         Grid::new(
             $self,
@@ -357,7 +357,7 @@ mod grid_test {
     fn test_grid_click() {
         let mut counter = 0;
         let c = &mut counter;
-        let mut grid = grid!(
+        let mut grid = simple_grid!(
             c,
             usize,
             ColType::Px(10.),
@@ -370,7 +370,7 @@ mod grid_test {
             RowType::Px(10.),
             RowType::Ratio(1.),
             RowType::Px(10.);
-            Pos { x: 1, y: 1 } => grid!(
+            Pos { x: 1, y: 1 } => simple_grid!(
                     c,
                     usize,
                     ColType::Px(2.),

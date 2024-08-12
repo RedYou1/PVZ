@@ -234,7 +234,7 @@ impl<K, V> GridChildren<K> for RefGrid<V> {
 }
 
 #[macro_export]
-macro_rules! refgrid {
+macro_rules! simple_refgrid {
     ($self:ident, $($col:expr),*; $($row:expr),*; $($pos:expr => $child:expr),* $(,)?) => {
         RefGrid::new(
             $self,

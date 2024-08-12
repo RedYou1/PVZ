@@ -1,6 +1,7 @@
+use sdl::scale;
 use sdl2::{render::Canvas, video::Window};
 
-use crate::{scale, zombie::Zombie};
+use crate::zombie::Zombie;
 
 use super::Level;
 

@@ -1,10 +1,11 @@
 use std::{collections::HashMap, fs, time::Duration};
 
 use sdl::{
+    button::Button,
     event::Event,
     game_window::GameWindow,
-    grid,
     grid::{ColType, Grid, GridChildren, Pos, RowType},
+    simple_grid,
     user_control::UserControl,
 };
 use sdl2::{
@@ -16,11 +17,10 @@ use sdl2::{
 };
 
 use crate::{
-    button::Button,
     level::{config::LevelConfig, Level},
     save::SaveFile,
     texts::Texts,
-    textures::load_textures,
+    textures::{load_textures, textures},
     update::Update,
 };
 
@@ -111,7 +111,8 @@ impl GameWindow for Win {
 
     #[allow(clippy::too_many_lines)]
     fn init(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        self.main_menu = grid!(
+        let textures = textures()?;
+        self.main_menu = simple_grid!(
             self,
             Win,
             ColType::Ratio(485.),
@@ -122,7 +123,7 @@ impl GameWindow for Win {
             RowType::Ratio(200.),
             RowType::Ratio(320.),
             RowType::Ratio(200.);
-            Pos { x: 1, y: 1 } => grid!(
+            Pos { x: 1, y: 1 } => simple_grid!(
                 self,
                 Win,
                 ColType::Ratio(1.);
@@ -133,9 +134,9 @@ impl GameWindow for Win {
                 RowType::Ratio(40.),
                 RowType::Ratio(20.),
                 RowType::Ratio(40.);
-                Pos { x: 0, y: 0 } => Button::new(Self::next_lang, |_self| _self.texts().lang),
-                Pos { x: 0, y: 2 } => Button::new(Self::change_full_screen, |_self| _self.texts().full_screen),
-                Pos { x: 0, y: 4 } => Button::new(Self::quit, |_self| _self.texts().quit),
+                Pos { x: 0, y: 0 } => Button::new(&textures.font,Self::next_lang, |_self| _self.texts().lang),
+                Pos { x: 0, y: 2 } => Button::new(&textures.font,Self::change_full_screen, |_self| _self.texts().full_screen),
+                Pos { x: 0, y: 4 } => Button::new(&textures.font,Self::quit, |_self| _self.texts().quit),
                 Pos { x: 0, y: 6 } => Update::new(Self::texts),
             ),
             Pos { x: 3, y: 1 } => Grid::new(
@@ -146,6 +147,7 @@ impl GameWindow for Win {
                     (
                         Pos { x: 0, y: level as usize },
                         Box::new(Button::new(
+                            &textures.font,
                             move |_self: &mut Win, _, _, canvas| {
                                 let win = _self as *mut Win;
                                 _self.level = Some(
@@ -166,7 +168,7 @@ impl GameWindow for Win {
                 }))
             ),
         );
-        self.options = grid!(
+        self.options = simple_grid!(
             self,
             Win,
             ColType::Ratio(565.),
@@ -181,14 +183,14 @@ impl GameWindow for Win {
             RowType::Ratio(20.),
             RowType::Ratio(40.),
             RowType::Ratio(300.);
-            Pos { x: 1, y: 1 } => Button::new(Self::next_lang, |_self| _self.texts().lang),
-            Pos { x: 1, y: 3 } => Button::new(Self::change_full_screen, |_self| {
+            Pos { x: 1, y: 1 } => Button::new(&textures.font,Self::next_lang, |_self| _self.texts().lang),
+            Pos { x: 1, y: 3 } => Button::new(&textures.font,Self::change_full_screen, |_self| {
                         _self.texts().full_screen
                     }),
-            Pos { x: 1, y: 5 } => Button::new(Self::_return, |_self| _self.texts()._return),
-            Pos { x: 1, y: 7 } => Button::new(Self::quit, |_self| _self.texts().quit),
+            Pos { x: 1, y: 5 } => Button::new(&textures.font,Self::_return, |_self| _self.texts()._return),
+            Pos { x: 1, y: 7 } => Button::new(&textures.font,Self::quit, |_self| _self.texts().quit),
         );
-        self.overlay = grid!(
+        self.overlay = simple_grid!(
             self,
             Win,
             ColType::Ratio(1120.),
@@ -199,8 +201,8 @@ impl GameWindow for Win {
             RowType::Ratio(500.),
             RowType::Ratio(100.),
             RowType::Ratio(10.);
-            Pos { x: 1, y: 1 } => Button::new(Self::menu, |_self| _self.texts().menu),
-            Pos { x: 1, y: 3 } => Button::new(Self::play, |_self| {
+            Pos { x: 1, y: 1 } => Button::new(&textures.font,Self::menu, |_self| _self.texts().menu),
+            Pos { x: 1, y: 3 } => Button::new(&textures.font,Self::play, |_self| {
                         if let Some(level) = _self.level.as_ref() {
                             if level.started.is_none() {
                                 _self.texts().start

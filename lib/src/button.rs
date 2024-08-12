@@ -1,9 +1,9 @@
 use std::{marker::PhantomData, time::Duration};
 
-use sdl::{event::Event, grid::GridChildren};
-use sdl2::{mouse::MouseButton, pixels::Color, rect::FRect, render::Canvas, video::Window};
-
-use crate::textures::draw_string;
+use crate::{draw_string, event::Event, grid::GridChildren};
+use sdl2::{
+    mouse::MouseButton, pixels::Color, rect::FRect, render::Canvas, ttf::Font, video::Window,
+};
 
 pub struct Button<
     T,
@@ -12,6 +12,7 @@ pub struct Button<
     Func2: Fn(&T) -> Text,
 > {
     parent: PhantomData<T>,
+    font: &'static Font<'static, 'static>,
     action: Func,
     surface: FRect,
     text: Func2,
@@ -23,9 +24,10 @@ impl<
         Func2: Fn(&T) -> Text,
     > Button<T, Text, Func, Func2>
 {
-    pub fn new(action: Func, text: Func2) -> Self {
+    pub fn new(font: &'static Font<'static, 'static>, action: Func, text: Func2) -> Self {
         Self {
             parent: PhantomData,
+            font,
             action,
             surface: FRect::new(0., 0., 0., 0.),
             text,
@@ -93,6 +95,6 @@ impl<
         }
         canvas.set_draw_color(Color::BLACK);
         canvas.fill_frect(self.surface)?;
-        draw_string(canvas, self.surface, text)
+        draw_string(canvas, self.font, self.surface, text)
     }
 }
