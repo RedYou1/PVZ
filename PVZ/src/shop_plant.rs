@@ -7,15 +7,15 @@ use sdl::{
 };
 use sdl2::{mouse::MouseButton, pixels::Color, rect::FRect, render::Canvas, video::Window};
 
-use crate::{plants::Plant, textures::textures};
+use crate::{level::Level, plants::Plant, textures::textures};
 
-pub struct ShopPlant<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> {
-    parent: PhantomData<T>,
+pub struct ShopPlant<Func: FnMut(&mut Level, &dyn Plant, f32, f32)> {
+    parent: PhantomData<Level>,
     action: Func,
     surface: FRect,
     plant: Box<dyn Plant>,
 }
-impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> ShopPlant<T, Func> {
+impl<Func: FnMut(&mut Level, &dyn Plant, f32, f32)> ShopPlant<Func> {
     pub fn new(action: Func, plant: Box<dyn Plant>) -> Self {
         Self {
             parent: PhantomData,
@@ -25,8 +25,8 @@ impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> ShopPlant<T, Func> {
         }
     }
 }
-impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> GridChildren<T> for ShopPlant<T, Func> {
-    fn grid_init(&mut self, _: &mut Canvas<Window>, _: &mut T) -> Result<(), String> {
+impl<Func: FnMut(&mut Level, &dyn Plant, f32, f32)> GridChildren<Level> for ShopPlant<Func> {
+    fn grid_init(&mut self, _: &mut Canvas<Window>, _: &mut Level) -> Result<(), String> {
         Ok(())
     }
 
@@ -34,7 +34,7 @@ impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> GridChildren<T> for ShopPlant
         &mut self,
         _: &mut Canvas<Window>,
         surface: FRect,
-        _: &mut T,
+        _: &mut Level,
     ) -> Result<(), String> {
         self.surface = surface;
         Ok(())
@@ -44,14 +44,17 @@ impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> GridChildren<T> for ShopPlant
         &mut self,
         _: &mut Canvas<Window>,
         event: Event,
-        parent: &mut T,
+        parent: &mut Level,
     ) -> Result<(), String> {
-        if let Ok(Event::MouseButtonDown {
-            mouse_btn: MouseButton::Left,
-            x,
-            y,
-            ..
-        }) = event.hover(self.surface)
+        if let (
+            true,
+            Event::MouseButtonDown {
+                mouse_btn: MouseButton::Left,
+                x,
+                y,
+                ..
+            },
+        ) = (event.hover(self.surface), event)
         {
             (self.action)(parent, self.plant.as_ref(), x, y);
         }
@@ -62,13 +65,17 @@ impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> GridChildren<T> for ShopPlant
         &mut self,
         _: &mut Canvas<Window>,
         _: Duration,
-        _: &mut T,
+        _: &mut Level,
     ) -> Result<(), String> {
         Ok(())
     }
 
-    fn grid_draw(&self, canvas: &mut Canvas<Window>, _: &T) -> Result<(), String> {
-        canvas.set_draw_color(Color::BLACK);
+    fn grid_draw(&self, canvas: &mut Canvas<Window>, parent: &Level) -> Result<(), String> {
+        canvas.set_draw_color(if parent.money >= self.plant.cost() {
+            Color::RGB(0, 150, 0)
+        } else {
+            Color::RGB(150, 0, 0)
+        });
         canvas.fill_frect(self.surface)?;
         canvas.copy_f(
             self.plant.texture()?,

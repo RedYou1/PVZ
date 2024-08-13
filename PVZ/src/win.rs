@@ -6,6 +6,7 @@ use sdl::{
     game_window::GameWindow,
     grid::{ColType, Grid, GridChildren, Pos, RowType},
     missing::ui_string::UIString,
+    scroll_view::ScrollView,
     simple_grid,
     ui_rect::UIRect,
     user_control::UserControl,
@@ -143,14 +144,14 @@ impl GameWindow for Win {
         self.main_menu = simple_grid!(
             self,
             Win,
-            ColType::Ratio(485.),
-            ColType::Ratio(150.),
+            ColType::Ratio(380.),
+            ColType::Ratio(275.),
             ColType::Ratio(10.),
-            ColType::Ratio(150.),
-            ColType::Ratio(485.);
-            RowType::Ratio(200.),
-            RowType::Ratio(320.),
-            RowType::Ratio(200.);
+            ColType::Ratio(235.),
+            ColType::Ratio(380.);
+            RowType::Ratio(175.),
+            RowType::Ratio(370.),
+            RowType::Ratio(175.);
             Pos { x: 1, y: 1 } => simple_grid!(
                 self,
                 Win,
@@ -172,13 +173,13 @@ impl GameWindow for Win {
                     None => _self.texts()?.loading.clone(),
                 }), Color::WHITE)))),
             ),
-            Pos { x: 3, y: 1 } => Grid::new(
+            Pos { x: 3, y: 1 } => ScrollView::new(Grid::new(
                 self,
                 vec![ColType::Ratio(1.)],
-                (0..self.levels_count).map(|_| RowType::Ratio(1.)).collect(),
+                (0..self.levels_count).flat_map(|_| [RowType::Ratio(10.),RowType::Ratio(1.)]).take((self.levels_count as usize)*2-1).collect(),
                 HashMap::from_iter((0..self.levels_count).map(|level| {
                     (
-                        Pos { x: 0, y: level as usize },
+                        Pos { x: 0, y: level as usize * 2 },
                         Box::new(UIRect::new(
                             font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
                             move |_self: &mut Win, _, _, _, canvas| {
@@ -201,7 +202,7 @@ impl GameWindow for Win {
                         ))) as Box<dyn GridChildren<Win>>,
                     )
                 }))
-            ),
+            ), 235., 90. * self.levels_count as f32, Box::new(|_, _|Color::RGBA(200,200,200,200))),
         );
         self.options = simple_grid!(
             self,

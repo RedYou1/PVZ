@@ -161,12 +161,15 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
         if (self.state)(parent, self) != StateEnum::Enable {
             return Ok(());
         }
-        match event.hover(self.surface) {
-            Ok(Event::MouseButtonDown {
-                mouse_btn: MouseButton::Left,
-                x,
-                ..
-            }) => {
+        match (event.hover(self.surface), event) {
+            (
+                true,
+                Event::MouseButtonDown {
+                    mouse_btn: MouseButton::Left,
+                    x,
+                    ..
+                },
+            ) => {
                 let selected = self.is_selected();
                 if self.shift && selected.is_some() {
                     let (index, _) = selected.ok_or("Checked")?;
@@ -181,12 +184,12 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
                     );
                 }
             }
-            Err(Event::MouseButtonDown { .. }) => {
+            (false, Event::MouseButtonDown { .. }) => {
                 if self.is_selected().is_some() {
                     self.unselect()
                 }
             }
-            Ok(Event::MouseMotion { mousestate, x, .. }) if mousestate.left() => {
+            (true, Event::MouseMotion { mousestate, x, .. }) if mousestate.left() => {
                 if let Some((index, _)) = self.is_selected() {
                     self.select(
                         index,
@@ -194,59 +197,86 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
                     );
                 }
             }
-            Ok(Event::KeyDown {
-                keycode: Some(Keycode::LShift),
-                scancode: Some(_),
-                ..
-            })
-            | Ok(Event::KeyDown {
-                keycode: Some(Keycode::RShift),
-                scancode: Some(_),
-                ..
-            }) => {
+            (
+                _,
+                Event::KeyDown {
+                    keycode: Some(Keycode::LShift),
+                    scancode: Some(_),
+                    ..
+                },
+            )
+            | (
+                _,
+                Event::KeyDown {
+                    keycode: Some(Keycode::RShift),
+                    scancode: Some(_),
+                    ..
+                },
+            ) => {
                 self.shift = true;
             }
-            Ok(Event::KeyUp {
-                keycode: Some(Keycode::LShift),
-                scancode: Some(_),
-                ..
-            })
-            | Ok(Event::KeyUp {
-                keycode: Some(Keycode::RShift),
-                scancode: Some(_),
-                ..
-            }) => {
+            (
+                _,
+                Event::KeyUp {
+                    keycode: Some(Keycode::LShift),
+                    scancode: Some(_),
+                    ..
+                },
+            )
+            | (
+                _,
+                Event::KeyUp {
+                    keycode: Some(Keycode::RShift),
+                    scancode: Some(_),
+                    ..
+                },
+            ) => {
                 self.shift = false;
             }
-            Ok(Event::KeyDown {
-                keycode: Some(Keycode::LCtrl),
-                scancode: Some(_),
-                ..
-            })
-            | Ok(Event::KeyDown {
-                keycode: Some(Keycode::RCtrl),
-                scancode: Some(_),
-                ..
-            }) => {
+            (
+                _,
+                Event::KeyDown {
+                    keycode: Some(Keycode::LCtrl),
+                    scancode: Some(_),
+                    ..
+                },
+            )
+            | (
+                _,
+                Event::KeyDown {
+                    keycode: Some(Keycode::RCtrl),
+                    scancode: Some(_),
+                    ..
+                },
+            ) => {
                 self.ctrl = true;
             }
-            Ok(Event::KeyUp {
-                keycode: Some(Keycode::LCtrl),
-                scancode: Some(_),
-                ..
-            })
-            | Ok(Event::KeyUp {
-                keycode: Some(Keycode::RCtrl),
-                scancode: Some(_),
-                ..
-            }) => {
+            (
+                _,
+                Event::KeyUp {
+                    keycode: Some(Keycode::LCtrl),
+                    scancode: Some(_),
+                    ..
+                },
+            )
+            | (
+                _,
+                Event::KeyUp {
+                    keycode: Some(Keycode::RCtrl),
+                    scancode: Some(_),
+                    ..
+                },
+            ) => {
                 self.ctrl = false;
             }
-            Ok(Event::KeyDown {
-                keycode: Some(keycode),
-                scancode: Some(scancode),
-                ..
-            }) => {
+            (
+                _,
+                Event::KeyDown {
+                    keycode: Some(keycode),
+                    scancode: Some(scancode),
+                    ..
+                },
+            ) => {
                 if let Some((mut index, to_index)) = self.is_selected() {
                     match keycode {
                         Keycode::Backspace => {

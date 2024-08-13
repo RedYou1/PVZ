@@ -84,13 +84,16 @@ impl<Parent> GridChildren<Parent> for UIRect<Parent> {
             return Ok(());
         }
         let _self = self as *mut Self;
-        match event.hover(self.surface) {
-            Ok(Event::MouseButtonUp {
-                mouse_btn: MouseButton::Left,
-                x,
-                y,
-                ..
-            }) => {
+        match (event.hover(self.surface), event) {
+            (
+                true,
+                Event::MouseButtonDown {
+                    mouse_btn: MouseButton::Left,
+                    x,
+                    y,
+                    ..
+                },
+            ) => {
                 if let Some(action) = self.action.as_mut() {
                     (action)(
                         parent,
@@ -101,10 +104,10 @@ impl<Parent> GridChildren<Parent> for UIRect<Parent> {
                     )?;
                 }
             }
-            Ok(Event::MouseMotion { .. }) => {
+            (true, Event::MouseMotion { .. }) => {
                 self.hover = true;
             }
-            Err(_) => self.hover = false,
+            (false, _) => self.hover = false,
             _ => {}
         }
         Ok(())

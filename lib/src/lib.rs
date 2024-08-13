@@ -6,6 +6,7 @@ pub mod game_window;
 pub mod grid;
 pub mod missing;
 pub mod ref_grid;
+pub mod scroll_view;
 pub mod text_box;
 pub mod ui_rect;
 pub mod user_control;
