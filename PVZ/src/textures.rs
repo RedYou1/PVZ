@@ -1,6 +1,5 @@
 use sdl2::{
     image::LoadTexture,
-    rect::FRect,
     render::{BlendMode, Canvas, Texture, TextureCreator},
     ttf::{self, Font},
     video::{Window, WindowContext},
@@ -40,10 +39,6 @@ pub fn textures() -> Result<&'static Textures, String> {
     TEXTURES
         .get()
         .ok_or("Didn't loaded the textures".to_owned())
-}
-
-pub fn draw_string(canvas: &mut Canvas<Window>, to: FRect, text: &str) -> Result<(), String> {
-    sdl::draw_string(canvas, &textures()?.font, to, text)
 }
 
 fn freezed(

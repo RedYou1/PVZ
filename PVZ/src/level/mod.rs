@@ -1,14 +1,19 @@
 use config::LevelConfig;
 use sdl::{
-    button::Button,
     event::Event,
+    functions::StateEnum,
     grid::{ColType, Grid, GridChildren, Pos, RowType},
-    scale,
+    missing::{
+        rect::scale,
+        ui_string::{draw_string, UIString},
+    },
+    ui_rect::UIRect,
     user_control::UserControl,
 };
 use sdl2::{
     keyboard::Keycode,
     mouse::MouseButton,
+    pixels::Color,
     rect::{FPoint, FRect, Rect},
     render::Canvas,
     video::Window,
@@ -26,7 +31,7 @@ use crate::{
     projectile::Projectile,
     shop_plant::ShopPlant,
     sun::Sun,
-    textures::{self, draw_string, textures},
+    textures::{self, textures},
     win::Win,
     zombie::{zombie_from_id, Zombie},
 };
@@ -118,11 +123,17 @@ impl Level {
             }));
         element.insert(
             Pos { x: 1, y: moneyid },
-            Box::new(Button::new(
-                &textures()?.font,
-                |_, _, _, _| Ok(()),
-                |_self: &Level| format!("{}$", _self.money),
-            )) as Box<dyn GridChildren<Level>>,
+            Box::new(
+                UIRect::new(
+                    &textures()?.font,
+                    Box::new(|_, _| StateEnum::Enable),
+                    Box::new(|_, _| Color::BLACK),
+                )
+                .text(Box::new(|_self: &Level, _| {
+                    UIString::new(&textures()?.font, format!("{}$", _self.money))
+                        .map(|s| (s, Color::WHITE))
+                })),
+            ) as Box<dyn GridChildren<Level>>,
         );
         let mut shop = Grid::new(
             self,
@@ -321,12 +332,15 @@ impl GridChildren<Win> for Level {
             if let Some(end) = self.end {
                 draw_string(
                     canvas,
+                    &textures()?.font,
+                    None,
                     scale(self.surface, FRect::new(0.25, 0.25, 0.5, 0.5)),
                     if end {
-                        parent.texts().win
+                        &parent.texts()?.win
                     } else {
-                        parent.texts().lost
+                        &parent.texts()?.lost
                     },
+                    Color::WHITE,
                 )?;
             }
             if let Some((x, y, plant)) = self.dragging.as_ref() {

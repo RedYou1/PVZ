@@ -1,45 +1,23 @@
-pub struct Texts {
-    pub lang: &'static str,
-    pub quit: &'static str,
-    pub full_screen: &'static str,
-    pub _return: &'static str,
-    pub menu: &'static str,
-    pub start: &'static str,
-    pub win: &'static str,
-    pub lost: &'static str,
+use sdl::missing::ui_string::UIString;
+use sdl2::ttf::Font;
 
-    pub update_available: &'static str,
-    pub up_to_date: &'static str,
-    pub loading: &'static str,
+pub struct Texts {
+    pub lang: UIString,
+    pub quit: UIString,
+    pub full_screen: UIString,
+    pub _return: UIString,
+    pub menu: UIString,
+    pub start: UIString,
+    pub win: UIString,
+    pub lost: UIString,
+
+    pub update_available: UIString,
+    pub up_to_date: UIString,
+    pub loading: UIString,
 }
 
-const EN: Texts = Texts {
-    lang: "English",
-    quit: "Quit",
-    full_screen: "Full screen",
-    _return: "Return",
-    menu: "Menu",
-    start: "Start",
-    win: "Win",
-    lost: "Lost",
-    update_available: "An update is available.",
-    up_to_date: "You are up to date.",
-    loading: "Loading...",
-};
-
-const FR: Texts = Texts {
-    lang: "Français",
-    quit: "Quitter",
-    full_screen: "Plein écran",
-    _return: "Retour",
-    menu: "Menu",
-    start: "Commencer",
-    win: "Victoire",
-    lost: "Défaite",
-    update_available: "Une mise à jour est disponible.",
-    up_to_date: "Vous êtes à jour.",
-    loading: "Chargement...",
-};
+static mut EN: Option<Texts> = None;
+static mut FR: Option<Texts> = None;
 
 #[derive(Clone, Copy)]
 pub enum Lang {
@@ -47,9 +25,47 @@ pub enum Lang {
     FR,
 }
 
-pub const fn texts(lang: Lang) -> &'static Texts {
-    match lang {
-        Lang::EN => &EN,
-        Lang::FR => &FR,
+pub fn texts(lang: Lang) -> Result<&'static Texts, String> {
+    unsafe {
+        Ok(match lang {
+            Lang::EN => EN.as_ref().ok_or("Didn't loaded the texts".to_owned())?,
+            Lang::FR => FR.as_ref().ok_or("Didn't loaded the texts".to_owned())?,
+        })
     }
+}
+
+pub fn load_texts(font: &'static Font<'static, 'static>) -> Result<(), String> {
+    unsafe {
+        EN = Some(Texts {
+            lang: UIString::new(font, "English".to_owned())?.expect("Constant text"),
+            quit: UIString::new(font, "Quit".to_owned())?.expect("Constant text"),
+            full_screen: UIString::new(font, "Full screen".to_owned())?.expect("Constant text"),
+            _return: UIString::new(font, "Return".to_owned())?.expect("Constant text"),
+            menu: UIString::new(font, "Menu".to_owned())?.expect("Constant text"),
+            start: UIString::new(font, "Start".to_owned())?.expect("Constant text"),
+            win: UIString::new(font, "Win".to_owned())?.expect("Constant text"),
+            lost: UIString::new(font, "Lost".to_owned())?.expect("Constant text"),
+            update_available: UIString::new(font, "An update is available.".to_owned())?
+                .expect("Constant text"),
+            up_to_date: UIString::new(font, "You are up to date.".to_owned())?
+                .expect("Constant text"),
+            loading: UIString::new(font, "Loading...".to_owned())?.expect("Constant text"),
+        });
+        FR = Some(Texts {
+            lang: UIString::new(font, "Français".to_owned())?.expect("Constant text"),
+            quit: UIString::new(font, "Quitter".to_owned())?.expect("Constant text"),
+            full_screen: UIString::new(font, "Plein écran".to_owned())?.expect("Constant text"),
+            _return: UIString::new(font, "Retour".to_owned())?.expect("Constant text"),
+            menu: UIString::new(font, "Menu".to_owned())?.expect("Constant text"),
+            start: UIString::new(font, "Commencer".to_owned())?.expect("Constant text"),
+            win: UIString::new(font, "Victoire".to_owned())?.expect("Constant text"),
+            lost: UIString::new(font, "Défaite".to_owned())?.expect("Constant text"),
+            update_available: UIString::new(font, "Une mise à jour est disponible.".to_owned())?
+                .expect("Constant text"),
+            up_to_date: UIString::new(font, "Vous êtes à jour.".to_owned())?
+                .expect("Constant text"),
+            loading: UIString::new(font, "Chargement...".to_owned())?.expect("Constant text"),
+        });
+    }
+    Ok(())
 }

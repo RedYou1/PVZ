@@ -2,16 +2,17 @@ use std::{collections::HashMap, fs, time::Duration};
 
 use pvz::{
     save::SaveFile,
-    texts::Texts,
+    texts::{load_texts, Texts},
     textures::{load_textures, textures},
 };
 use sdl::{
-    button::Button,
     event::Event,
+    functions::StateEnum,
     game_window::GameWindow,
     grid::{ColType, Grid, GridChildren, Pos, RowType},
     simple_grid,
     text_box::TextBox,
+    ui_rect::UIRect,
     user_control::UserControl,
 };
 use sdl2::{
@@ -36,6 +37,7 @@ pub struct Win {
 impl Win {
     pub fn new(canvas: &mut Canvas<Window>) -> Result<Self, String> {
         load_textures(canvas, Box::leak(Box::new(canvas.texture_creator())))?;
+        load_texts(&textures()?.font)?;
 
         let maps_count = fs::read_dir("assets/maps")
             .map_err(|e| e.to_string())?
@@ -63,7 +65,7 @@ impl Win {
         })
     }
 
-    pub const fn texts(&self) -> &'static Texts {
+    pub fn texts(&self) -> Result<&'static Texts, String> {
         self.save.texts()
     }
 
@@ -82,7 +84,13 @@ impl Win {
         Ok(())
     }
 
-    fn quit(&mut self, _: f32, _: f32, _: &mut Canvas<Window>) -> Result<(), String> {
+    fn quit(
+        &mut self,
+        _: &UIRect<Win>,
+        _: f32,
+        _: f32,
+        _: &mut Canvas<Window>,
+    ) -> Result<(), String> {
         self.running = false;
         Ok(())
     }
@@ -103,8 +111,8 @@ impl GameWindow for Win {
             RowType::Ratio(150.),
             RowType::Ratio(150.),
             RowType::Ratio(200.);
-            Pos{x:1,y:1} => TextBox::new("id".to_owned(), &mut self.selected, &textures()?.font, "".to_owned()),
-            Pos{x:1,y:2} => Button::new(&textures()?.font, Self::quit, |_self| _self.texts().quit),
+            Pos{x:1,y:1} => TextBox::new("id".to_owned(), &mut self.selected, &textures()?.font, None, Box::new(|_, _| StateEnum::Enable), Box::new(|_,_| Color::RGBA(255,255,255,100)), Box::new(|_,_| Color::WHITE), Box::new(|_,_| Color::WHITE),Box::new(|_,_| Color::BLACK)),
+            Pos{x:1,y:2} => UIRect::new(&textures()?.font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::quit)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.quit.clone()), Color::WHITE)))),
         );
         Ok(())
     }

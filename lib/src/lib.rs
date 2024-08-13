@@ -1,21 +1,20 @@
 extern crate sdl2;
 
-pub mod button;
 pub mod event;
+pub mod functions;
 pub mod game_window;
 pub mod grid;
+pub mod missing;
 pub mod ref_grid;
 pub mod text_box;
+pub mod ui_rect;
 pub mod user_control;
 
 use std::{thread, time};
 
-use event::Event;
 use game_window::GameWindow;
 use sdl2::pixels::Color;
-use sdl2::rect::FRect;
 use sdl2::render::{BlendMode, Canvas};
-use sdl2::ttf::Font;
 use sdl2::video::{Window, WindowBuilder};
 
 pub fn run<
@@ -75,10 +74,7 @@ pub fn run<
         game.init_frame(&mut canvas, width, height)?;
 
         for event in event_pump.poll_iter() {
-            let event: Event = event.into();
-            if let Some(event) = event.hover(FRect::new(0., 0., width, height)) {
-                game.event(&mut canvas, event)?;
-            }
+            game.event(&mut canvas, event.into())?;
         }
 
         let now_update = time::Instant::now();
@@ -95,33 +91,4 @@ pub fn run<
     }
 
     Ok(())
-}
-
-pub fn scale(surface: FRect, scale: FRect) -> FRect {
-    FRect::new(
-        scale.x() * surface.width() + surface.x(),
-        scale.y() * surface.height() + surface.y(),
-        scale.width() * surface.width(),
-        scale.height() * surface.height(),
-    )
-}
-
-pub fn draw_string(
-    canvas: &mut Canvas<Window>,
-    font: &Font,
-    to: FRect,
-    text: &str,
-) -> Result<(), String> {
-    canvas.copy_f(
-        &canvas
-            .texture_creator()
-            .create_texture_from_surface(
-                font.render(text)
-                    .blended(Color::WHITE)
-                    .map_err(|e| e.to_string())?,
-            )
-            .map_err(|e| e.to_string())?,
-        None,
-        to,
-    )
 }

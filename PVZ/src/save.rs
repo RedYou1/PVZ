@@ -47,7 +47,7 @@ impl SaveFile {
         })
     }
 
-    pub const fn texts(&self) -> &'static Texts {
+    pub fn texts(&self) -> Result<&'static Texts, String> {
         texts(self.langage)
     }
 }

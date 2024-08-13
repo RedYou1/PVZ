@@ -208,16 +208,8 @@ impl<T> UserControl for Grid<T> {
 
     fn event(&mut self, canvas: &mut Canvas<Window>, event: Event) -> Result<(), String> {
         let parent = unsafe { self.parent.as_mut().ok_or("unwrap ptr event grid")? };
-        for (
-            _,
-            GridElement {
-                surface, element, ..
-            },
-        ) in self.elements.iter_mut()
-        {
-            if let Some(event) = event.clone().hover(*surface) {
-                element.grid_event(canvas, event, parent)?;
-            }
+        for (_, GridElement { element, .. }) in self.elements.iter_mut() {
+            element.grid_event(canvas, event.clone(), parent)?;
         }
         Ok(())
     }

@@ -1,40 +1,50 @@
-use std::{
-    ffi::{CStr, CString},
-    marker::PhantomData,
-    os::raw::c_int,
-    time::Duration,
-};
+use std::{marker::PhantomData, time::Duration};
 
-use crate::{draw_string, event::Event, grid::GridChildren};
+use crate::{
+    event::Event,
+    functions::{FnColor, FnState, StateEnum},
+    grid::GridChildren,
+    missing::{
+        clipboard::{get_clipboard_text, set_clipboard_text},
+        ui_string::{draw_string, UIString},
+    },
+};
 use sdl2::{
     keyboard::Keycode,
     mouse::MouseButton,
-    pixels::Color,
     rect::{FPoint, FRect},
     render::Canvas,
-    sys::{SDL_GetClipboardText, SDL_HasClipboardText, SDL_SetClipboardText, SDL_bool},
     ttf::Font,
     video::Window,
 };
 
-const MAXLEN: usize = 100;
-
-pub struct TextBox<T> {
-    parent: PhantomData<T>,
+pub struct TextBox<Parent> {
+    parent: PhantomData<Parent>,
     id: String,
     selected: *mut Option<(String, usize, Option<usize>)>,
     font: &'static Font<'static, 'static>,
     surface: FRect,
-    text: String,
+    text: UIString,
     shift: bool,
     ctrl: bool,
+    state: FnState<Parent, Self>,
+    select_color: FnColor<Parent, Self>,
+    line_color: FnColor<Parent, Self>,
+    front_color: FnColor<Parent, Self>,
+    back_color: FnColor<Parent, Self>,
 }
-impl<T> TextBox<T> {
+impl<Parent> TextBox<Parent> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: String,
         selected: *mut Option<(String, usize, Option<usize>)>,
         font: &'static Font<'static, 'static>,
-        text: String,
+        text: Option<UIString>,
+        state: FnState<Parent, Self>,
+        select_color: FnColor<Parent, Self>,
+        line_color: FnColor<Parent, Self>,
+        front_color: FnColor<Parent, Self>,
+        back_color: FnColor<Parent, Self>,
     ) -> Self {
         Self {
             parent: PhantomData,
@@ -42,9 +52,14 @@ impl<T> TextBox<T> {
             selected,
             font,
             surface: FRect::new(0., 0., 0., 0.),
-            text,
+            text: text.unwrap_or(UIString::empty(font)),
             shift: false,
             ctrl: false,
+            state,
+            select_color,
+            line_color,
+            front_color,
+            back_color,
         }
     }
 
@@ -68,25 +83,33 @@ impl<T> TextBox<T> {
         } = Some((self.id.clone(), index, to_index));
     }
 
+    pub fn unselect(&mut self) {
+        *unsafe {
+            self.selected
+                .as_mut()
+                .expect("unwrap ptr text_box is_selected")
+        } = None;
+    }
+
     fn index_to_position(&self, index: usize) -> f32 {
         if index == 0 {
             return 0.;
         }
         self.font
-            .size_of(&self.text[..index])
+            .size_of(&self.text.as_str()[..index])
             .expect("font error")
             .0 as f32
-            / self.font.size_of(&self.text).expect("font error").0 as f32
+            / self.font.size_of(self.text.as_str()).expect("font error").0 as f32
     }
 
     fn position_to_index(&self, mut pos: f32) -> usize {
         if self.text.is_empty() {
             0
         } else {
-            let scale =
-                self.surface.width() / self.font.size_of(&self.text).expect("font error").0 as f32;
+            let scale = self.surface.width()
+                / self.font.size_of(self.text.as_ref()).expect("font error").0 as f32;
             pos *= self.surface.width();
-            for (i, c) in self.text.chars().enumerate() {
+            for (i, c) in self.text.as_str().chars().enumerate() {
                 let w = self.font.size_of_char(c).expect("font error").0 as f32 * scale;
                 if w > pos {
                     if w / 2. > pos {
@@ -101,28 +124,20 @@ impl<T> TextBox<T> {
         }
     }
 
-    fn delete_selection(&mut self, index: &mut usize, to_index: usize) {
+    fn delete_selection(&mut self, index: &mut usize, to_index: usize) -> Result<(), String> {
         if *index < to_index {
-            self.text.drain(*index..to_index);
-            self.select(*index, None);
-        } else {
-            self.text.drain(to_index..*index);
+            if self.text.drain(*index, to_index - *index)?.is_some() {
+                self.select(*index, None);
+            }
+        } else if self.text.drain(to_index, *index - to_index)?.is_some() {
             self.select(to_index, None);
             *index = to_index
-        }
-    }
-
-    fn copy(&self, index: usize, to_index: usize) -> Result<(), String> {
-        let text = self.text[index.min(to_index)..index.max(to_index)].to_string();
-        let text = CString::new(text).map_err(|e| e.to_string())?;
-        if unsafe { SDL_SetClipboardText(text.as_ptr()) != c_int::from(0) } {
-            return Err("Error set clipboard text_board".to_owned());
         }
         Ok(())
     }
 }
-impl<T> GridChildren<T> for TextBox<T> {
-    fn grid_init(&mut self, _: &mut Canvas<Window>, _: &mut T) -> Result<(), String> {
+impl<Parent> GridChildren<Parent> for TextBox<Parent> {
+    fn grid_init(&mut self, _: &mut Canvas<Window>, _: &mut Parent) -> Result<(), String> {
         Ok(())
     }
 
@@ -130,7 +145,7 @@ impl<T> GridChildren<T> for TextBox<T> {
         &mut self,
         _: &mut Canvas<Window>,
         surface: FRect,
-        _: &mut T,
+        _: &mut Parent,
     ) -> Result<(), String> {
         self.surface = surface;
         Ok(())
@@ -141,14 +156,17 @@ impl<T> GridChildren<T> for TextBox<T> {
         &mut self,
         _: &mut Canvas<Window>,
         event: Event,
-        _: &mut T,
+        parent: &mut Parent,
     ) -> Result<(), String> {
-        match event {
-            Event::MouseButtonDown {
+        if (self.state)(parent, self) != StateEnum::Enable {
+            return Ok(());
+        }
+        match event.hover(self.surface) {
+            Ok(Event::MouseButtonDown {
                 mouse_btn: MouseButton::Left,
                 x,
                 ..
-            } => {
+            }) => {
                 let selected = self.is_selected();
                 if self.shift && selected.is_some() {
                     let (index, _) = selected.ok_or("Checked")?;
@@ -163,7 +181,12 @@ impl<T> GridChildren<T> for TextBox<T> {
                     );
                 }
             }
-            Event::MouseMotion { mousestate, x, .. } if mousestate.left() => {
+            Err(Event::MouseButtonDown { .. }) => {
+                if self.is_selected().is_some() {
+                    self.unselect()
+                }
+            }
+            Ok(Event::MouseMotion { mousestate, x, .. }) if mousestate.left() => {
                 if let Some((index, _)) = self.is_selected() {
                     self.select(
                         index,
@@ -171,74 +194,73 @@ impl<T> GridChildren<T> for TextBox<T> {
                     );
                 }
             }
-            Event::KeyDown {
+            Ok(Event::KeyDown {
                 keycode: Some(Keycode::LShift),
                 scancode: Some(_),
                 ..
-            }
-            | Event::KeyDown {
+            })
+            | Ok(Event::KeyDown {
                 keycode: Some(Keycode::RShift),
                 scancode: Some(_),
                 ..
-            } => {
+            }) => {
                 self.shift = true;
             }
-            Event::KeyUp {
+            Ok(Event::KeyUp {
                 keycode: Some(Keycode::LShift),
                 scancode: Some(_),
                 ..
-            }
-            | Event::KeyUp {
+            })
+            | Ok(Event::KeyUp {
                 keycode: Some(Keycode::RShift),
                 scancode: Some(_),
                 ..
-            } => {
+            }) => {
                 self.shift = false;
             }
-            Event::KeyDown {
+            Ok(Event::KeyDown {
                 keycode: Some(Keycode::LCtrl),
                 scancode: Some(_),
                 ..
-            }
-            | Event::KeyDown {
+            })
+            | Ok(Event::KeyDown {
                 keycode: Some(Keycode::RCtrl),
                 scancode: Some(_),
                 ..
-            } => {
+            }) => {
                 self.ctrl = true;
             }
-            Event::KeyUp {
+            Ok(Event::KeyUp {
                 keycode: Some(Keycode::LCtrl),
                 scancode: Some(_),
                 ..
-            }
-            | Event::KeyUp {
+            })
+            | Ok(Event::KeyUp {
                 keycode: Some(Keycode::RCtrl),
                 scancode: Some(_),
                 ..
-            } => {
+            }) => {
                 self.ctrl = false;
             }
-            Event::KeyDown {
+            Ok(Event::KeyDown {
                 keycode: Some(keycode),
                 scancode: Some(scancode),
                 ..
-            } => {
+            }) => {
                 if let Some((mut index, to_index)) = self.is_selected() {
                     match keycode {
                         Keycode::Backspace => {
                             if let Some(to_index) = to_index {
-                                self.delete_selection(&mut index, to_index);
-                            } else if index > 0 {
-                                self.text.remove(index - 1);
+                                self.delete_selection(&mut index, to_index)?;
+                            } else if index > 0 && self.text.remove(index - 1)?.is_some() {
                                 self.select(index - 1, None);
                             }
                         }
                         Keycode::Delete => {
                             if let Some(to_index) = to_index {
-                                self.delete_selection(&mut index, to_index);
-                            } else if index < self.text.len() {
-                                self.text.remove(index);
+                                self.delete_selection(&mut index, to_index)?;
+                            } else if index < self.text.len() && self.text.remove(index)?.is_some()
+                            {
                                 self.select(index, None);
                             }
                         }
@@ -284,41 +306,40 @@ impl<T> GridChildren<T> for TextBox<T> {
                         }
                         Keycode::Space => {
                             if let Some(to_index) = to_index {
-                                self.delete_selection(&mut index, to_index);
+                                self.delete_selection(&mut index, to_index)?;
                             }
-                            if self.text.len() < MAXLEN {
-                                self.text.insert(index, ' ');
+                            if self.text.insert(index, ' ')? {
                                 self.select(index + 1, None);
                             }
                         }
                         Keycode::V if self.ctrl => {
                             if let Some(to_index) = to_index {
-                                self.delete_selection(&mut index, to_index);
+                                self.delete_selection(&mut index, to_index)?;
                             }
-                            if self.text.len() < MAXLEN
-                                && unsafe { SDL_HasClipboardText() == SDL_bool::SDL_TRUE }
-                            {
-                                let text = unsafe { CStr::from_ptr(SDL_GetClipboardText()) }
-                                    .to_str()
-                                    .map_err(|e| e.to_string())?
-                                    .to_owned();
-                                let text = &text[..text.len().min(MAXLEN - self.text.len())];
-                                self.text.insert_str(index, text);
-                                self.select(index + text.len(), None);
+                            if let Some(text) = get_clipboard_text() {
+                                let text = text?;
+                                let tlen = self.text.insert_str(index, text.as_str())?;
+                                self.select(index + tlen, None);
                             }
                         }
                         Keycode::C if self.ctrl => {
                             if let Some(to_index) = to_index {
                                 if index != to_index {
-                                    self.copy(index, to_index)?;
+                                    set_clipboard_text(
+                                        &self.text.as_str()
+                                            [index.min(to_index)..index.max(to_index)],
+                                    )?;
                                 }
                             }
                         }
                         Keycode::X if self.ctrl => {
                             if let Some(to_index) = to_index {
                                 if index != to_index {
-                                    self.copy(index, to_index)?;
-                                    self.delete_selection(&mut index, to_index);
+                                    set_clipboard_text(
+                                        &self.text.as_str()
+                                            [index.min(to_index)..index.max(to_index)],
+                                    )?;
+                                    self.delete_selection(&mut index, to_index)?;
                                 }
                             }
                         }
@@ -330,19 +351,16 @@ impl<T> GridChildren<T> for TextBox<T> {
                         _ if self.ctrl => {}
                         _ => {
                             if let Some(to_index) = to_index {
-                                self.delete_selection(&mut index, to_index);
+                                self.delete_selection(&mut index, to_index)?;
                             }
                             let mut text = scancode.to_string();
-                            if self.text.len() < MAXLEN {
-                                if self.shift {
-                                    text = text.to_uppercase();
-                                } else {
-                                    text = text.to_lowercase();
-                                }
-                                let text = &text[..text.len().min(MAXLEN - self.text.len())];
-                                self.text.insert_str(index, text);
-                                self.select(index + text.len(), None);
+                            if self.shift {
+                                text = text.to_uppercase();
+                            } else {
+                                text = text.to_lowercase();
                             }
+                            let tlen = self.text.insert_str(index, text.as_str())?;
+                            self.select(index + tlen, None);
                         }
                     }
                 }
@@ -356,20 +374,33 @@ impl<T> GridChildren<T> for TextBox<T> {
         &mut self,
         _: &mut Canvas<Window>,
         _: Duration,
-        _: &mut T,
+        _: &mut Parent,
     ) -> Result<(), String> {
         Ok(())
     }
 
-    fn grid_draw(&self, canvas: &mut Canvas<Window>, _: &T) -> Result<(), String> {
-        canvas.set_draw_color(Color::GRAY);
+    fn grid_draw(&self, canvas: &mut Canvas<Window>, parent: &Parent) -> Result<(), String> {
+        if (self.state)(parent, self) == StateEnum::Hidden {
+            return Ok(());
+        }
+        canvas.set_draw_color((self.back_color)(parent, self));
+        canvas.fill_frect(self.surface)?;
+        let front_color = (self.front_color)(parent, self);
+        canvas.set_draw_color(front_color);
         canvas.draw_frect(self.surface)?;
         if !self.text.is_empty() {
-            draw_string(canvas, self.font, self.surface, self.text.as_str())?;
+            draw_string(
+                canvas,
+                self.font,
+                None,
+                self.surface,
+                &self.text,
+                front_color,
+            )?;
         }
         if let Some((index, to_index)) = self.is_selected() {
             if let Some(to_index) = to_index {
-                canvas.set_draw_color(Color::RGBA(255, 255, 255, 100));
+                canvas.set_draw_color((self.select_color)(parent, self));
                 let pos1 = self.surface.width() * self.index_to_position(index) + self.surface.x();
                 let pos2 =
                     self.surface.width() * self.index_to_position(to_index) + self.surface.x();
@@ -380,7 +411,7 @@ impl<T> GridChildren<T> for TextBox<T> {
                     self.surface.height(),
                 ))?;
             } else {
-                canvas.set_draw_color(Color::WHITE);
+                canvas.set_draw_color((self.line_color)(parent, self));
                 canvas.draw_fline(
                     FPoint::new(
                         self.surface.width() * self.index_to_position(index) + self.surface.x(),

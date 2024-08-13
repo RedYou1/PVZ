@@ -154,17 +154,12 @@ impl<T> UserControl for RefGrid<T> {
                 .as_mut()
                 .ok_or("unwrap ptr event parent refgrid")?
         };
-        for (
-            _,
-            RefGridElement {
-                surface, element, ..
-            },
-        ) in self.elements.iter_mut()
-        {
-            if let Some(event) = event.clone().hover(*surface) {
-                unsafe { element.as_mut().ok_or("unwrap ptr event refgrid")? }
-                    .grid_event(canvas, event, parent)?;
-            }
+        for (_, RefGridElement { element, .. }) in self.elements.iter_mut() {
+            unsafe { element.as_mut().ok_or("unwrap ptr event refgrid")? }.grid_event(
+                canvas,
+                event.clone(),
+                parent,
+            )?;
         }
         Ok(())
     }

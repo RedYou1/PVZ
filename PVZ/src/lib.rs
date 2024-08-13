@@ -7,6 +7,7 @@ pub mod shop_plant;
 pub mod sun;
 pub mod texts;
 pub mod textures;
-pub mod update;
 pub mod win;
 pub mod zombie;
+
+pub static mut UPDATE_AVAILABLE: Option<Result<bool, String>> = None;

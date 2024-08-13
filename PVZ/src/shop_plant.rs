@@ -1,9 +1,13 @@
 use std::{marker::PhantomData, time::Duration};
 
-use sdl::{event::Event, grid::GridChildren};
+use sdl::{
+    event::Event,
+    grid::GridChildren,
+    missing::ui_string::{draw_string, UIString},
+};
 use sdl2::{mouse::MouseButton, pixels::Color, rect::FRect, render::Canvas, video::Window};
 
-use crate::{plants::Plant, textures::draw_string};
+use crate::{plants::Plant, textures::textures};
 
 pub struct ShopPlant<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> {
     parent: PhantomData<T>,
@@ -21,9 +25,7 @@ impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> ShopPlant<T, Func> {
         }
     }
 }
-impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> GridChildren<T>
-    for ShopPlant<T, Func>
-{
+impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> GridChildren<T> for ShopPlant<T, Func> {
     fn grid_init(&mut self, _: &mut Canvas<Window>, _: &mut T) -> Result<(), String> {
         Ok(())
     }
@@ -44,12 +46,12 @@ impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> GridChildren<T>
         event: Event,
         parent: &mut T,
     ) -> Result<(), String> {
-        if let Event::MouseButtonDown {
+        if let Ok(Event::MouseButtonDown {
             mouse_btn: MouseButton::Left,
             x,
             y,
             ..
-        } = event
+        }) = event.hover(self.surface)
         {
             (self.action)(parent, self.plant.as_ref(), x, y);
         }
@@ -78,15 +80,22 @@ impl<T, Func: FnMut(&mut T, &dyn Plant, f32, f32)> GridChildren<T>
                 self.surface.height() - self.surface.height() * 20. / 106.,
             ),
         )?;
+        let mut text = UIString::new(&textures()?.font, format!("{}$", self.plant.cost()))?;
+        if text.is_none() {
+            text = UIString::new(&textures()?.font, format!("{}$", self.plant.cost()))?;
+        }
         draw_string(
             canvas,
+            &textures()?.font,
+            None,
             FRect::new(
                 self.surface.x(),
                 self.surface.y() + self.surface.height() * 80. / 106.,
                 self.surface.width(),
                 self.surface.height() * 30. / 106.,
             ),
-            format!("{}$", self.plant.cost()).as_str(),
+            &text.ok_or("can't draw money".to_owned())?,
+            Color::WHITE,
         )
     }
 }

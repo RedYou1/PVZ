@@ -6,89 +6,39 @@ mod from;
 pub use _enum::Event;
 
 impl Event {
-    pub fn hover(self, sub: FRect) -> Option<Self> {
+    pub fn hover(self, sub: FRect) -> Result<Self, Self> {
         match self {
-            Self::MouseMotion {
-                which,
-                mousestate,
-                x,
-                y,
-                moved_x,
-                moved_y,
-            } => {
+            Self::MouseMotion { x, y, .. } => {
                 if sub.contains_point(FPoint::new(x, y)) {
-                    Some(Self::MouseMotion {
-                        which,
-                        mousestate,
-                        x,
-                        y,
-                        moved_x,
-                        moved_y,
-                    })
+                    Ok(self)
                 } else {
-                    None
+                    Err(self)
                 }
             }
-            Self::MouseButtonDown {
-                which,
-                mouse_btn,
-                clicks,
-                x,
-                y,
-            } => {
+            Self::MouseButtonDown { x, y, .. } => {
                 if sub.contains_point(FPoint::new(x, y)) {
-                    Some(Self::MouseButtonDown {
-                        which,
-                        mouse_btn,
-                        clicks,
-                        x,
-                        y,
-                    })
+                    Ok(self)
                 } else {
-                    None
+                    Err(self)
                 }
             }
-            Self::MouseButtonUp {
-                which,
-                mouse_btn,
-                clicks,
-                x,
-                y,
-            } => {
+            Self::MouseButtonUp { x, y, .. } => {
                 if sub.contains_point(FPoint::new(x, y)) {
-                    Some(Self::MouseButtonUp {
-                        which,
-                        mouse_btn,
-                        clicks,
-                        x,
-                        y,
-                    })
+                    Ok(self)
                 } else {
-                    None
+                    Err(self)
                 }
             }
             Self::MouseWheel {
-                which,
-                scroll_x,
-                scroll_y,
-                direction,
-                mouse_x,
-                mouse_y,
+                mouse_x, mouse_y, ..
             } => {
                 if sub.contains_point(FPoint::new(mouse_x, mouse_y)) {
-                    Some(Self::MouseWheel {
-                        which,
-                        scroll_x,
-                        scroll_y,
-                        direction,
-                        mouse_x,
-                        mouse_y,
-                    })
+                    Ok(self)
                 } else {
-                    None
+                    Err(self)
                 }
             }
-            _ => Some(self),
+            _ => Ok(self),
         }
     }
 }

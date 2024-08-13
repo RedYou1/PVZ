@@ -1,4 +1,4 @@
-use sdl::scale;
+use sdl::missing::rect::scale;
 use sdl2::{render::Canvas, video::Window};
 
 use crate::zombie::Zombie;
