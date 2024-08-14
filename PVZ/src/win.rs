@@ -20,7 +20,7 @@ use sdl2::{
 };
 
 use crate::{
-    level::{config::LevelConfig, Level},
+    level::Level,
     save::SaveFile,
     texts::{load_texts, Texts},
     textures::{load_textures, textures},
@@ -156,13 +156,15 @@ impl GameWindow for Win {
                 self,
                 Win,
                 ColType::Ratio(1.);
-                RowType::Ratio(40.),
-                RowType::Ratio(20.),
-                RowType::Ratio(40.),
-                RowType::Ratio(20.),
-                RowType::Ratio(40.),
-                RowType::Ratio(20.),
-                RowType::Ratio(40.);
+                RowType::Ratio(10.),
+                RowType::Ratio(1.),
+                RowType::Ratio(10.),
+                RowType::Ratio(1.),
+                RowType::Ratio(10.),
+                RowType::Ratio(1.),
+                RowType::Ratio(10.),
+                RowType::Ratio(1.),
+                RowType::Ratio(10.);
                 Pos { x: 0, y: 0 } => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::next_lang)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.lang.clone()), Color::WHITE)))),
                 Pos { x: 0, y: 2 } => UIRect::new(font,Box::new(|_:&Win,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(|_self,_,_,_,canvas|_self.change_full_screen(canvas))).text(Box::new(|_self, _| Ok((Some(_self.texts()?.full_screen.clone()), Color::WHITE)))),
                 Pos { x: 0, y: 4 } => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::quit)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.quit.clone()), Color::WHITE)))),
@@ -185,7 +187,7 @@ impl GameWindow for Win {
                             move |_self: &mut Win, _, _, _, canvas| {
                                 let win = _self as *mut Win;
                                 _self.level = Some(
-                                    LevelConfig::load_config(level)
+                                    Level::load(level)
                                         .map_err(|e| e.to_string())?,
                                 );
                                 _self

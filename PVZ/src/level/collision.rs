@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    config::{LevelConfig, RowType},
+    config::{Map, RowType},
     Level,
 };
 
@@ -19,10 +19,10 @@ impl Level {
             for (x, plant) in plants.iter_mut().enumerate() {
                 if let Some(plant) = plant {
                     let mut spawns = plant.should_spawn(
-                        self.config.pos_to_coord_x(x) + plant.rect(0., 0.).width() / 2.,
-                        self.config.pos_to_coord_y(y),
+                        self.map.pos_to_coord_x(x) + plant.rect(0., 0.).width() / 2.,
+                        self.map.pos_to_coord_y(y),
                         y,
-                        self.config.rows.len() - 1,
+                        self.map.rows.len() - 1,
                         &self.zombies,
                     );
                     self.suns.append(&mut spawns.0);
@@ -38,7 +38,7 @@ impl Level {
 pub(super) fn do_damage_to_plant(
     zombie: &mut dyn Zombie,
     plants: &mut [Option<Box<dyn Plant>>],
-    config: &LevelConfig,
+    config: &Map,
     row_type: RowType,
     prev_x: f32,
     elapsed: Duration,

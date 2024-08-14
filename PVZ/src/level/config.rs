@@ -23,8 +23,8 @@ pub enum RowType {
     Grass,
     Water,
 }
-pub struct LevelConfig {
-    pub map: u8,
+pub struct Map {
+    pub id: u8,
 
     pub top: f32,
     pub left: f32,
@@ -33,13 +33,9 @@ pub struct LevelConfig {
 
     pub rows: Vec<RowType>,
     pub cols: u8,
-
-    pub waits: Vec<Duration>,
-    #[allow(clippy::type_complexity)]
-    pub zombies: Vec<Vec<(u8, f32, f32)>>,
 }
 
-impl LevelConfig {
+impl Map {
     pub fn coord_to_pos_x(&self, x: f32) -> Option<usize> {
         if x < self.left || x >= self.left + self.width {
             None
@@ -70,11 +66,7 @@ impl LevelConfig {
         self.width / self.cols as f32
     }
 
-    pub fn load_config(level: u8) -> std::io::Result<Level> {
-        let mut level_data = fs::read(format!("levels/{level}.data"))?;
-
-        let map = level_data.remove(0);
-
+    pub fn load(map: u8) -> std::io::Result<Self> {
         let mut map_data = fs::read(format!("assets/maps/{map}.data"))?;
         let top = f32::from_le_bytes([
             map_data.remove(0),
@@ -110,6 +102,39 @@ impl LevelConfig {
             })
             .collect();
 
+        Ok(Self {
+            id: map,
+            top,
+            left,
+            width,
+            height,
+            rows: rows_types,
+            cols,
+        })
+    }
+
+    pub fn save(&self) -> std::io::Result<()> {
+        let mut map_data = Vec::with_capacity(32);
+        map_data.extend(self.top.to_le_bytes());
+        map_data.extend(self.left.to_le_bytes());
+        map_data.extend(self.width.to_le_bytes());
+        map_data.extend(self.height.to_le_bytes());
+        map_data.push(self.rows.len() as u8);
+        map_data.push(self.cols);
+        map_data.extend(self.rows.iter().map(|row| match row {
+            RowType::Grass => 0,
+            RowType::Water => 1,
+        }));
+        fs::write(format!("assets/maps/{}.data", self.id), map_data)
+    }
+}
+impl Level {
+    pub fn load(level: u8) -> std::io::Result<Self> {
+        let mut level_data = fs::read(format!("levels/{level}.data"))?;
+
+        let map = Map::load(level_data.remove(0))?;
+        let rows = map.rows.len();
+
         let money = u32::from_le_bytes([
             level_data.remove(0),
             level_data.remove(0),
@@ -118,15 +143,15 @@ impl LevelConfig {
         ]);
         let waves = level_data.remove(0).into();
 
-        let waits = level_data
+        let spawn_waits = level_data
             .drain(0..waves)
             .map(|secs| Duration::from_secs(secs as u64))
             .collect();
 
-        let min_x = left + width - 305. / 1280.;
-        let min_y = top + height / rows as f32;
-        let max_y = top + height;
-        let zombies = (0..waves)
+        let min_x = map.left + map.width - 305. / 1280.;
+        let min_y = map.top + map.height / rows as f32;
+        let max_y = map.top + map.height;
+        let spawn_zombies = (0..waves)
             .map(|_| {
                 let types = level_data.remove(0).into();
                 let zombies = generate_zombies_wave(&level_data, types, min_x, min_y, max_y);
@@ -142,28 +167,20 @@ impl LevelConfig {
             ));
         }
 
-        Ok(Level {
+        Ok(Self {
             started: None,
             surface: FRect::new(0., 0., 0., 0.),
             suns: Vec::with_capacity(4),
             next_sun: Duration::new(5, 0),
             plants: (0..rows)
-                .map(|_| (0..cols).map(|_| None).collect())
+                .map(|_| (0..map.cols).map(|_| None).collect())
                 .collect(),
             map_plants: unsafe { Grid::empty() },
             zombies: (0..rows).map(|_| Vec::with_capacity(16)).collect(),
             projectiles: (0..rows).map(|_| Vec::with_capacity(4)).collect(),
-            config: LevelConfig {
-                map,
-                top,
-                left,
-                width,
-                height,
-                rows: rows_types,
-                cols,
-                waits,
-                zombies,
-            },
+            map,
+            spawn_waits,
+            spawn_zombies,
             shop_plants: vec![
                 Box::new(Nenuphar::new()),
                 Box::new(Sunflower::new()),

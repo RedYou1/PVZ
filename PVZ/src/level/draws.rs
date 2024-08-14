@@ -18,7 +18,7 @@ impl Level {
                     scale(
                         self.surface,
                         zombie.rect(
-                            self.config.pos_to_coord_y(y) + self.config.row_heigth()
+                            self.map.pos_to_coord_y(y) + self.map.row_heigth()
                                 - zombie.rect(0.).height(),
                         ),
                     ),
@@ -37,7 +37,7 @@ impl Level {
                     scale(
                         self.surface,
                         proj.rect(
-                            self.config.pos_to_coord_y(y) + self.config.row_heigth() / 2.
+                            self.map.pos_to_coord_y(y) + self.map.row_heigth() / 2.
                                 - proj.rect(0.).height() / 2.,
                         ),
                     ),

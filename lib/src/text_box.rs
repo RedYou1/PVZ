@@ -24,7 +24,7 @@ pub struct TextBox<Parent> {
     selected: *mut Option<(String, usize, Option<usize>)>,
     font: &'static Font<'static, 'static>,
     surface: FRect,
-    text: UIString,
+    text: *mut UIString,
     shift: bool,
     ctrl: bool,
     state: FnState<Parent, Self>,
@@ -39,7 +39,7 @@ impl<Parent> TextBox<Parent> {
         id: String,
         selected: *mut Option<(String, usize, Option<usize>)>,
         font: &'static Font<'static, 'static>,
-        text: Option<UIString>,
+        text: *mut UIString,
         state: FnState<Parent, Self>,
         select_color: FnColor<Parent, Self>,
         line_color: FnColor<Parent, Self>,
@@ -52,7 +52,7 @@ impl<Parent> TextBox<Parent> {
             selected,
             font,
             surface: FRect::new(0., 0., 0., 0.),
-            text: text.unwrap_or(UIString::empty(font)),
+            text,
             shift: false,
             ctrl: false,
             state,
@@ -61,6 +61,14 @@ impl<Parent> TextBox<Parent> {
             front_color,
             back_color,
         }
+    }
+
+    pub fn text(&self) -> &UIString {
+        unsafe { self.text.as_ref().expect("unwrap ptr text UIString") }
+    }
+
+    pub fn text_mut(&mut self) -> &mut UIString {
+        unsafe { self.text.as_mut().expect("unwrap ptr text UIString") }
     }
 
     pub fn is_selected(&self) -> Option<(usize, Option<usize>)> {
@@ -96,20 +104,28 @@ impl<Parent> TextBox<Parent> {
             return 0.;
         }
         self.font
-            .size_of(&self.text.as_str()[..index])
+            .size_of(&self.text().as_str()[..index])
             .expect("font error")
             .0 as f32
-            / self.font.size_of(self.text.as_str()).expect("font error").0 as f32
+            / self
+                .font
+                .size_of(self.text().as_str())
+                .expect("font error")
+                .0 as f32
     }
 
     fn position_to_index(&self, mut pos: f32) -> usize {
-        if self.text.is_empty() {
+        if self.text().is_empty() {
             0
         } else {
             let scale = self.surface.width()
-                / self.font.size_of(self.text.as_ref()).expect("font error").0 as f32;
+                / self
+                    .font
+                    .size_of(self.text().as_ref())
+                    .expect("font error")
+                    .0 as f32;
             pos *= self.surface.width();
-            for (i, c) in self.text.as_str().chars().enumerate() {
+            for (i, c) in self.text().as_str().chars().enumerate() {
                 let w = self.font.size_of_char(c).expect("font error").0 as f32 * scale;
                 if w > pos {
                     if w / 2. > pos {
@@ -120,19 +136,42 @@ impl<Parent> TextBox<Parent> {
                 }
                 pos -= w;
             }
-            self.text.len()
+            self.text().len()
         }
     }
 
     fn delete_selection(&mut self, index: &mut usize, to_index: usize) -> Result<(), String> {
         if *index < to_index {
-            if self.text.drain(*index, to_index - *index)?.is_some() {
+            if self.text_mut().drain(*index, to_index - *index)?.is_some() {
                 self.select(*index, None);
             }
-        } else if self.text.drain(to_index, *index - to_index)?.is_some() {
+        } else if self
+            .text_mut()
+            .drain(to_index, *index - to_index)?
+            .is_some()
+        {
             self.select(to_index, None);
             *index = to_index
         }
+        Ok(())
+    }
+
+    fn insert(
+        &mut self,
+        to_index: Option<usize>,
+        index: &mut usize,
+        mut text: String,
+    ) -> Result<(), String> {
+        if let Some(to_index) = to_index {
+            self.delete_selection(index, to_index)?;
+        }
+        if self.shift {
+            text = text.to_uppercase();
+        } else {
+            text = text.to_lowercase();
+        }
+        let tlen = self.text_mut().insert_str(*index, text.as_str())?;
+        self.select(*index + tlen, None);
         Ok(())
     }
 }
@@ -282,14 +321,15 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
                         Keycode::Backspace => {
                             if let Some(to_index) = to_index {
                                 self.delete_selection(&mut index, to_index)?;
-                            } else if index > 0 && self.text.remove(index - 1)?.is_some() {
+                            } else if index > 0 && self.text_mut().remove(index - 1)?.is_some() {
                                 self.select(index - 1, None);
                             }
                         }
                         Keycode::Delete => {
                             if let Some(to_index) = to_index {
                                 self.delete_selection(&mut index, to_index)?;
-                            } else if index < self.text.len() && self.text.remove(index)?.is_some()
+                            } else if index < self.text().len()
+                                && self.text_mut().remove(index)?.is_some()
                             {
                                 self.select(index, None);
                             }
@@ -317,7 +357,7 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
                         Keycode::Right => {
                             if let Some(to_index) = to_index {
                                 if self.shift {
-                                    if to_index < self.text.len() {
+                                    if to_index < self.text().len() {
                                         if index == to_index + 1 {
                                             self.select(index, None);
                                         } else {
@@ -327,7 +367,7 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
                                 } else {
                                     self.select(index.max(to_index), None);
                                 }
-                            } else if index == self.text.len() {
+                            } else if index == self.text().len() {
                             } else if self.shift {
                                 self.select(index, Some(index + 1));
                             } else {
@@ -335,28 +375,50 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
                             }
                         }
                         Keycode::Space => {
-                            if let Some(to_index) = to_index {
-                                self.delete_selection(&mut index, to_index)?;
-                            }
-                            if self.text.insert(index, ' ')? {
-                                self.select(index + 1, None);
-                            }
+                            self.insert(to_index, &mut index, " ".to_owned())?;
+                        }
+                        Keycode::KP_0 => {
+                            self.insert(to_index, &mut index, "0".to_owned())?;
+                        }
+                        Keycode::KP_1 => {
+                            self.insert(to_index, &mut index, "1".to_owned())?;
+                        }
+                        Keycode::KP_2 => {
+                            self.insert(to_index, &mut index, "2".to_owned())?;
+                        }
+                        Keycode::KP_3 => {
+                            self.insert(to_index, &mut index, "3".to_owned())?;
+                        }
+                        Keycode::KP_4 => {
+                            self.insert(to_index, &mut index, "4".to_owned())?;
+                        }
+                        Keycode::KP_5 => {
+                            self.insert(to_index, &mut index, "5".to_owned())?;
+                        }
+                        Keycode::KP_6 => {
+                            self.insert(to_index, &mut index, "6".to_owned())?;
+                        }
+                        Keycode::KP_7 => {
+                            self.insert(to_index, &mut index, "7".to_owned())?;
+                        }
+                        Keycode::KP_8 => {
+                            self.insert(to_index, &mut index, "8".to_owned())?;
+                        }
+                        Keycode::KP_9 => {
+                            self.insert(to_index, &mut index, "9".to_owned())?;
                         }
                         Keycode::V if self.ctrl => {
-                            if let Some(to_index) = to_index {
-                                self.delete_selection(&mut index, to_index)?;
-                            }
-                            if let Some(text) = get_clipboard_text() {
-                                let text = text?;
-                                let tlen = self.text.insert_str(index, text.as_str())?;
-                                self.select(index + tlen, None);
-                            }
+                            self.insert(
+                                to_index,
+                                &mut index,
+                                get_clipboard_text().unwrap_or(Ok(String::new()))?,
+                            )?;
                         }
                         Keycode::C if self.ctrl => {
                             if let Some(to_index) = to_index {
                                 if index != to_index {
                                     set_clipboard_text(
-                                        &self.text.as_str()
+                                        &self.text().as_str()
                                             [index.min(to_index)..index.max(to_index)],
                                     )?;
                                 }
@@ -366,7 +428,7 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
                             if let Some(to_index) = to_index {
                                 if index != to_index {
                                     set_clipboard_text(
-                                        &self.text.as_str()
+                                        &self.text().as_str()
                                             [index.min(to_index)..index.max(to_index)],
                                     )?;
                                     self.delete_selection(&mut index, to_index)?;
@@ -375,22 +437,12 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
                         }
                         Keycode::A if self.ctrl => {
                             if self.is_selected().is_some() {
-                                self.select(0, Some(self.text.len()));
+                                self.select(0, Some(self.text().len()));
                             }
                         }
                         _ if self.ctrl => {}
                         _ => {
-                            if let Some(to_index) = to_index {
-                                self.delete_selection(&mut index, to_index)?;
-                            }
-                            let mut text = scancode.to_string();
-                            if self.shift {
-                                text = text.to_uppercase();
-                            } else {
-                                text = text.to_lowercase();
-                            }
-                            let tlen = self.text.insert_str(index, text.as_str())?;
-                            self.select(index + tlen, None);
+                            self.insert(to_index, &mut index, scancode.to_string())?;
                         }
                     }
                 }
@@ -418,13 +470,13 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
         let front_color = (self.front_color)(parent, self);
         canvas.set_draw_color(front_color);
         canvas.draw_frect(self.surface)?;
-        if !self.text.is_empty() {
+        if !self.text().is_empty() {
             draw_string(
                 canvas,
                 self.font,
                 None,
                 self.surface,
-                &self.text,
+                self.text(),
                 front_color,
             )?;
         }

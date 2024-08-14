@@ -1,3 +1,5 @@
+mod map_config;
+mod pin;
 mod win;
 
 use crate::win::Win;

@@ -8,7 +8,7 @@ use sdl2::{
 
 pub fn string_size(font: &Font, text: &str) -> Result<Option<(f32, f32)>, String> {
     let (width, height) = font.size_of(text).map_err(|e| e.to_string())?;
-    if (1..=8192).contains(&width) && (1..=8192).contains(&height) {
+    if width <= 8192 && height <= 8192 {
         Ok(Some((width as f32, height as f32)))
     } else {
         Ok(None)
@@ -58,7 +58,7 @@ impl UIString {
         string_size(font, text.as_str()).map(|t| t.map(|_| Self { font, text }))
     }
 
-    pub(crate) const fn empty(font: &'static Font<'static, 'static>) -> Self {
+    pub const fn empty(font: &'static Font<'static, 'static>) -> Self {
         Self {
             font,
             text: String::new(),

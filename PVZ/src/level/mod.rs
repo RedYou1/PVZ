@@ -1,4 +1,4 @@
-use config::LevelConfig;
+use config::Map;
 use sdl::{
     event::Event,
     functions::StateEnum,
@@ -45,7 +45,10 @@ pub struct Level {
     pub map_plants: Grid<Level>,
     pub zombies: Vec<Vec<Box<dyn Zombie>>>,
     pub projectiles: Vec<Vec<Box<dyn Projectile>>>,
-    pub config: LevelConfig,
+    pub map: Map,
+    pub spawn_waits: Vec<Duration>,
+    #[allow(clippy::type_complexity)]
+    pub spawn_zombies: Vec<Vec<(u8, f32, f32)>>,
     pub shop_plants: Vec<Box<dyn Plant>>,
     pub dragging: Option<(f32, f32, Box<dyn Plant>)>,
     pub money: u32,
@@ -62,9 +65,9 @@ impl Level {
     fn drop_plant(&mut self, x: f32, y: f32) {
         if let Some((_, _, plant)) = self.dragging.as_ref() {
             if self.money >= plant.cost() {
-                if let Some(x) = self.config.coord_to_pos_x(x / self.surface.width()) {
-                    if let Some(y) = self.config.coord_to_pos_y(y / self.surface.height()) {
-                        match self.config.rows[y] {
+                if let Some(x) = self.map.coord_to_pos_x(x / self.surface.width()) {
+                    if let Some(y) = self.map.coord_to_pos_y(y / self.surface.height()) {
+                        match self.map.rows[y] {
                             config::RowType::Grass => {
                                 if !plant.is_nenuphar() && self.plants[y][x].is_none() {
                                     self.money -= plant.cost();
@@ -155,29 +158,29 @@ impl Level {
 impl GridChildren<Win> for Level {
     fn grid_init(&mut self, canvas: &mut Canvas<Window>, _: &mut Win) -> Result<(), String> {
         let _self = self as *mut Self;
-        let mut cols: Vec<ColType> = (0..self.config.cols)
+        let mut cols: Vec<ColType> = (0..self.map.cols)
             .flat_map(|_| {
                 [
                     ColType::Ratio(5. / 1280.),
-                    ColType::Ratio(self.config.col_width() - 10. / 1280.),
+                    ColType::Ratio(self.map.col_width() - 10. / 1280.),
                     ColType::Ratio(5. / 1280.),
                 ]
             })
             .collect();
-        cols.insert(0, ColType::Ratio(self.config.left));
-        cols.push(ColType::Ratio(1. - self.config.left - self.config.width));
-        let mut rows: Vec<RowType> = (0..self.config.rows.len())
+        cols.insert(0, ColType::Ratio(self.map.left));
+        cols.push(ColType::Ratio(1. - self.map.left - self.map.width));
+        let mut rows: Vec<RowType> = (0..self.map.rows.len())
             .flat_map(|_| {
                 [
                     RowType::Ratio(5. / 720.),
-                    RowType::Ratio(self.config.row_heigth() - 10. / 720.),
+                    RowType::Ratio(self.map.row_heigth() - 10. / 720.),
                     RowType::Ratio(5. / 720.),
                 ]
             })
             .collect();
-        rows.insert(0, RowType::Ratio(self.config.top));
-        rows.push(RowType::Ratio(1. - self.config.top - self.config.height));
-        let rows_type = self.config.rows.clone();
+        rows.insert(0, RowType::Ratio(self.map.top));
+        rows.push(RowType::Ratio(1. - self.map.top - self.map.height));
+        let rows_type = self.map.rows.clone();
         let rows_type: &[config::RowType] = rows_type.as_ref();
         self.map_plants = Grid::new(
             self,
@@ -289,7 +292,7 @@ impl GridChildren<Win> for Level {
         if self.end.is_some() {
             return Ok(());
         }
-        if !self.zombies.iter().flatten().any(|_| true) && self.config.waits.is_empty() {
+        if !self.zombies.iter().flatten().any(|_| true) && self.spawn_waits.is_empty() {
             self.end = Some(true);
             return Ok(());
         }
@@ -313,7 +316,7 @@ impl GridChildren<Win> for Level {
 
     fn grid_draw(&self, canvas: &mut Canvas<Window>, parent: &Win) -> Result<(), String> {
         canvas.copy(
-            &textures::textures()?.maps[self.config.map as usize],
+            &textures::textures()?.maps[self.map.id as usize],
             Some(Rect::new(
                 if self.started.is_none() { 238 } else { 0 },
                 0,
@@ -350,10 +353,10 @@ impl GridChildren<Win> for Level {
                     scale(
                         self.surface,
                         FRect::new(
-                            x - (self.config.col_width() - 10. / 1280.) / 2.,
-                            y - (self.config.row_heigth() - 10. / 720.) / 2.,
-                            self.config.col_width() - 10. / 1280.,
-                            self.config.row_heigth() - 10. / 720.,
+                            x - (self.map.col_width() - 10. / 1280.) / 2.,
+                            y - (self.map.row_heigth() - 10. / 720.) / 2.,
+                            self.map.col_width() - 10. / 1280.,
+                            self.map.row_heigth() - 10. / 720.,
                         ),
                     ),
                 )?;
@@ -361,7 +364,7 @@ impl GridChildren<Win> for Level {
             return Ok(());
         }
 
-        let mut t: Vec<&(u8, f32, f32)> = self.config.zombies.iter().flatten().collect();
+        let mut t: Vec<&(u8, f32, f32)> = self.spawn_zombies.iter().flatten().collect();
         t.sort_by(|(_, _, y1), (_, _, y2)| y1.total_cmp(y2));
         for &(z, x, y) in t {
             let mut z = zombie_from_id(z);
