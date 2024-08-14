@@ -2,7 +2,7 @@ use std::{marker::PhantomData, time::Duration};
 
 use crate::{
     event::Event,
-    functions::{FnAction, FnColor, FnState, FnText, StateEnum},
+    functions::{FnAction, FnColor, FnImage, FnState, FnText, StateEnum},
     grid::GridChildren,
     missing::ui_string::{draw_string, UIString},
 };
@@ -17,6 +17,7 @@ pub struct UIRect<Parent> {
     state: FnState<Parent, Self>,
     back_color: FnColor<Parent, Self>,
     hover: bool,
+    image: Option<FnImage<Parent, Self>>,
 }
 impl<Parent> UIRect<Parent> {
     pub fn new(
@@ -33,6 +34,7 @@ impl<Parent> UIRect<Parent> {
             state,
             back_color,
             hover: false,
+            image: None,
         }
     }
 
@@ -43,6 +45,11 @@ impl<Parent> UIRect<Parent> {
 
     pub fn text(mut self, text: FnText<Parent, Self>) -> Self {
         self.text = Some(text);
+        self
+    }
+
+    pub fn image(mut self, image: FnImage<Parent, Self>) -> Self {
+        self.image = Some(image);
         self
     }
 
@@ -128,6 +135,9 @@ impl<Parent> GridChildren<Parent> for UIRect<Parent> {
         }
         canvas.set_draw_color((self.back_color)(parent, self));
         canvas.fill_frect(self.surface)?;
+        if let Some(image) = self.image.as_ref() {
+            canvas.copy_f(image(parent, self)?, None, self.surface)?;
+        }
         if let Some(text) = self.text.as_ref() {
             if let (Some(text), color) = text(parent, self)? {
                 draw_string(canvas, self.font, None, self.surface, &text, color)?;

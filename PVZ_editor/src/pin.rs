@@ -39,29 +39,30 @@ impl Pin {
         }
     }
 
-    pub fn map(&self) -> &Map {
-        unsafe { self.map.as_ref().expect("unwrap ptr") }
+    pub fn map(&self) -> Result<&Map, String> {
+        unsafe { self.map.as_ref().ok_or("unwrap ptr pin map".to_owned()) }
     }
 
-    pub fn map_mut(&mut self) -> &mut Map {
-        unsafe { self.map.as_mut().expect("unwrap ptr") }
+    pub fn map_mut(&mut self) -> Result<&mut Map, String> {
+        unsafe { self.map.as_mut().ok_or("unwrap ptr pin map mut".to_owned()) }
     }
 
-    pub fn center(&self) -> (f32, f32) {
-        (
+    pub fn center(&self) -> Result<(f32, f32), String> {
+        let map = self.map()?;
+        Ok((
             if self._type {
-                self.map().left
+                map.left
             } else {
-                self.map().left + self.map().width
+                map.left + map.width
             } * self.surface.width()
                 + self.surface.x(),
             if self._type {
-                self.map().top
+                map.top
             } else {
-                self.map().top + self.map().height
+                map.top + map.height
             } * self.surface.height()
                 + self.surface.y(),
-        )
+        ))
     }
 }
 
@@ -82,17 +83,17 @@ impl UserControl for Pin {
             } => {
                 if mousestate.left() && self.selected {
                     if self._type {
-                        self.map_mut().left = ((x - self.surface.x()) / self.surface.width())
-                            .clamp(0., 1. - self.map().width);
-                        self.map_mut().top = ((y - self.surface.y()) / self.surface.height())
-                            .clamp(0., 1. - self.map().height);
+                        self.map_mut()?.left = ((x - self.surface.x()) / self.surface.width())
+                            .clamp(0., 1. - self.map()?.width);
+                        self.map_mut()?.top = ((y - self.surface.y()) / self.surface.height())
+                            .clamp(0., 1. - self.map()?.height);
                     } else {
-                        self.map_mut().width = ((x - self.surface.x()) / self.surface.width())
-                            .clamp(self.map().left, 1.)
-                            - self.map().left;
-                        self.map_mut().height = ((y - self.surface.y()) / self.surface.height())
-                            .clamp(self.map().top, 1.)
-                            - self.map().top;
+                        self.map_mut()?.width = ((x - self.surface.x()) / self.surface.width())
+                            .clamp(self.map()?.left, 1.)
+                            - self.map()?.left;
+                        self.map_mut()?.height = ((y - self.surface.y()) / self.surface.height())
+                            .clamp(self.map()?.top, 1.)
+                            - self.map()?.top;
                     }
                 }
             }
@@ -102,7 +103,7 @@ impl UserControl for Pin {
                 y,
                 ..
             } => {
-                let (c_x, c_y) = self.center();
+                let (c_x, c_y) = self.center()?;
                 self.selected = FRect::new(
                     c_x - HALF_SIZE,
                     c_y - HALF_SIZE,
@@ -127,7 +128,7 @@ impl UserControl for Pin {
     }
 
     fn draw(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        let (x, y) = self.center();
+        let (x, y) = self.center()?;
         canvas.filled_circle(x as i16, y as i16, HALF_SIZE as i16, Color::RED)?;
         canvas.set_draw_color(Color::BLACK);
         canvas

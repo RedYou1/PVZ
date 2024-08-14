@@ -1,4 +1,8 @@
-use sdl2::{pixels::Color, render::Canvas, video::Window};
+use sdl2::{
+    pixels::Color,
+    render::{Canvas, Texture},
+    video::Window,
+};
 
 use crate::missing::ui_string::UIString;
 
@@ -14,3 +18,5 @@ pub enum StateEnum {
 }
 pub type FnState<Parent, Element> = Box<dyn Fn(&Parent, &Element) -> StateEnum>;
 pub type FnColor<Parent, Element> = Box<dyn Fn(&Parent, &Element) -> Color>;
+pub type FnImage<Parent, Element> =
+    Box<dyn Fn(&Parent, &Element) -> Result<&'static Texture<'static>, String>>;

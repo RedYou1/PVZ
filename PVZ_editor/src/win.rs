@@ -26,12 +26,16 @@ use sdl2::{
     video::{FullscreenType, Window},
 };
 
-use crate::map_config::MapConfig;
+use crate::{map_config::MapConfig, rows_editor::RowsEditor};
 
 pub enum Page {
     MainMenu,
     Map,
     Level,
+
+    UnInitMainMenu,
+    UnInitMap,
+    UnInitLevel,
 }
 
 pub struct Win {
@@ -43,7 +47,7 @@ pub struct Win {
 
     page: Page,
     map_or_level: u8,
-    map_config: MapConfig,
+    pub map_config: MapConfig,
     col_text: UIString,
 
     selected: Option<(String, usize, Option<usize>)>,
@@ -79,7 +83,7 @@ impl Win {
             save: SaveFile::load()?,
             maps_count: maps_count as u8,
             levels_count: levels_count as u8,
-            page: Page::MainMenu,
+            page: Page::UnInitMainMenu,
             map_or_level: 0,
             map_config: MapConfig::empty(),
             col_text: UIString::empty(&textures()?.font),
@@ -127,22 +131,59 @@ impl Win {
         _: f32,
         _: &mut Canvas<Window>,
     ) -> Result<(), String> {
-        self.page = Page::MainMenu;
+        self.page = Page::UnInitMainMenu;
         self.selected = None;
+        Ok(())
+    }
+
+    fn add_row(
+        &mut self,
+        _: &UIRect<Win>,
+        _: f32,
+        _: f32,
+        _: &mut Canvas<Window>,
+    ) -> Result<(), String> {
+        self.map_config
+            .map
+            .rows
+            .push(pvz::level::config::RowType::Grass);
+        Ok(())
+    }
+
+    fn sub_row(
+        &mut self,
+        _: &UIRect<Win>,
+        _: f32,
+        _: f32,
+        _: &mut Canvas<Window>,
+    ) -> Result<(), String> {
+        self.map_config.map.rows.pop();
         Ok(())
     }
 
     fn set_map(&mut self, canvas: &mut Canvas<Window>, map: u8) -> Result<(), String> {
         let _self = self as *mut Win;
-        self.selected = None;
-        self.map_config = MapConfig::new(map)?;
+
+        let map_config = MapConfig::new(map)?;
         self.map_config.grid_init(canvas, unsafe {
             _self.as_mut().ok_or("unwrap ptr".to_owned())?
         })?;
-        self.map_or_level = map;
-        self.col_text = UIString::new(&textures()?.font, self.map_config.map.cols.to_string())?
-            .ok_or("cant create col".to_owned())?;
-        self.page = Page::Map;
+        let cols = map_config.map.cols.to_string();
+
+        (
+            self.page,
+            self.selected,
+            self.map_config,
+            self.map_or_level,
+            self.col_text,
+        ) = (
+            Page::UnInitMap,
+            None,
+            map_config,
+            map,
+            UIString::new(&textures()?.font, cols)?.ok_or("cant create col".to_owned())?,
+        );
+
         Ok(())
     }
 
@@ -160,7 +201,7 @@ impl GameWindow for Win {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn init(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+    fn init(&mut self, _: &mut Canvas<Window>) -> Result<(), String> {
         let font = &textures()?.font;
         let map_config = &mut self.map_config as *mut MapConfig;
         self.main_menu_page = simple_grid!(
@@ -187,7 +228,9 @@ impl GameWindow for Win {
                             font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
                             move |_self: &mut Win, _, _, _, canvas| {
                                 _self.set_map(canvas, map)
-                            })).text(Box::new(
+                            }))
+                            .image(Box::new(move |_self, _| Ok(&textures()?.maps[map as usize])))
+                            .text(Box::new(
                                 move |_self,_| {
                                 UIString::new(font, format!("{:0>3}", map+1)).map(|s| (s, Color::WHITE))
                             },
@@ -205,7 +248,7 @@ impl GameWindow for Win {
                         Box::new(UIRect::new(
                             font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
                             move |_self: &mut Win, _, _, _, _| {
-                                _self.page = Page::Level;
+                                _self.page = Page::UnInitLevel;
                                 _self.map_or_level = level;
                                 Ok(())
                             })).text(Box::new(
@@ -242,6 +285,16 @@ impl GameWindow for Win {
             RowType::Ratio(620.),
             RowType::Ratio(100.);
             Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
+            Pos{x:0,y:1} => RowsEditor::new(&mut self.map_config.map.rows),
+            Pos{x:0,y:2} => simple_grid!(
+                self,
+                Win,
+                ColType::Ratio(1.);
+                RowType::Ratio(1.),
+                RowType::Ratio(1.);
+                Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::add_row)).text(Box::new(|_self, _| Ok((UIString::new(font, "Add row".to_owned())?, Color::WHITE)))),
+                Pos{x:0,y:1} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::sub_row)).text(Box::new(|_self, _| Ok((UIString::new(font, "Remove row".to_owned())?, Color::WHITE)))),
+            ),
             Pos{x:1,y:1} => RefElement::new(unsafe{map_config.as_mut().ok_or("unwrap ptr")?}),
             Pos{x:1,y:0} => simple_grid!(
                 self,
@@ -282,6 +335,7 @@ impl GameWindow for Win {
                     Box::new(|_self: &Win, _| if _self.col_text.as_str().eq("0") || _self.col_text.as_str().parse::<u8>().is_err() {Color::RED} else {Color::BLACK}),
                 ),
             ),
+            Pos{x:2,y:2} => UIRect::new(font, Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(|_self: &mut Win,_,_,_,_| _self.save())).text(Box::new(|_, _| Ok((UIString::new(font, "Save".to_owned())?, Color::WHITE)))),
         );
         self.level_page = simple_grid!(
             self,
@@ -294,10 +348,7 @@ impl GameWindow for Win {
             RowType::Ratio(100.);
             Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
         );
-
-        self.main_menu_page.init(canvas)?;
-        self.map_page.init(canvas)?;
-        self.level_page.init(canvas)
+        Ok(())
     }
 
     fn init_frame(
@@ -306,6 +357,23 @@ impl GameWindow for Win {
         width: f32,
         height: f32,
     ) -> Result<(), String> {
+        self.page = match self.page {
+            Page::UnInitMainMenu => {
+                self.main_menu_page.init(canvas)?;
+                Page::MainMenu
+            }
+            Page::UnInitMap => {
+                self.map_page.init(canvas)?;
+                Page::Map
+            }
+            Page::UnInitLevel => {
+                self.level_page.init(canvas)?;
+                Page::Level
+            }
+            Page::MainMenu => Page::MainMenu,
+            Page::Map => Page::Map,
+            Page::Level => Page::Level,
+        };
         match self.page {
             Page::MainMenu => self
                 .main_menu_page
@@ -316,6 +384,7 @@ impl GameWindow for Win {
             Page::Level => self
                 .level_page
                 .init_frame(canvas, FRect::new(0., 0., width, height)),
+            _ => Ok(()),
         }
     }
 
@@ -334,6 +403,7 @@ impl GameWindow for Win {
             Page::MainMenu => self.main_menu_page.event(canvas, event.clone()),
             Page::Map => self.map_page.event(canvas, event.clone()),
             Page::Level => self.level_page.event(canvas, event),
+            _ => Ok(()),
         }
     }
 
@@ -342,6 +412,7 @@ impl GameWindow for Win {
             Page::MainMenu => self.main_menu_page.update(canvas, elapsed),
             Page::Map => self.map_page.update(canvas, elapsed),
             Page::Level => self.level_page.update(canvas, elapsed),
+            _ => Ok(()),
         }
     }
 
@@ -352,6 +423,7 @@ impl GameWindow for Win {
             Page::MainMenu => self.main_menu_page.draw(canvas),
             Page::Map => self.map_page.draw(canvas),
             Page::Level => self.level_page.draw(canvas),
+            _ => Ok(()),
         }
     }
 }
