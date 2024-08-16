@@ -2,6 +2,7 @@ use rand::Rng;
 use sdl::grid::Grid;
 use sdl2::rect::FRect;
 use std::{
+    collections::HashMap,
     fs,
     io::{self},
     time::Duration,
@@ -129,6 +130,29 @@ impl Map {
     }
 }
 impl Level {
+    pub fn save_config(&self) -> std::io::Result<()> {
+        let mut level_data = Vec::with_capacity(32);
+        level_data.push(self.id);
+        level_data.push(self.map.id);
+        level_data.extend(self.money.to_le_bytes());
+        level_data.push(self.spawn_waits.len() as u8);
+        level_data.extend(self.spawn_waits.iter().map(|w| w.as_secs() as u8));
+        level_data.extend(self.spawn_zombies.iter().flat_map(|z| {
+            let mut zombies: HashMap<u8, u8> = HashMap::with_capacity(4);
+            for z_id in z.iter().map(|z| z.0) {
+                if let Some(zz) = zombies.get_mut(&z_id) {
+                    *zz += 1;
+                } else {
+                    zombies.insert(z_id, 1);
+                }
+            }
+            let mut z_data = Vec::with_capacity(8);
+            z_data.push(zombies.len() as u8);
+            z_data.extend(zombies.into_iter().flat_map(|(k, v)| [k, v]));
+            z_data
+        }));
+        fs::write(format!("levels/{}.data", self.id), level_data)
+    }
     pub fn load(level: u8) -> std::io::Result<Self> {
         let mut level_data = fs::read(format!("levels/{level}.data"))?;
 
@@ -168,6 +192,7 @@ impl Level {
         }
 
         Ok(Self {
+            id: level,
             started: None,
             surface: FRect::new(0., 0., 0., 0.),
             suns: Vec::with_capacity(4),

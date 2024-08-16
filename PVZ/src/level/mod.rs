@@ -37,6 +37,7 @@ use crate::{
 };
 
 pub struct Level {
+    pub id: u8,
     pub started: Option<Grid<Level>>,
     pub surface: FRect,
     pub suns: Vec<Sun>,

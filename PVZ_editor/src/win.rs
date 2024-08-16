@@ -26,7 +26,7 @@ use sdl2::{
     video::{FullscreenType, Window},
 };
 
-use crate::{map_config::MapConfig, rows_editor::RowsEditor};
+use crate::{level_config::LevelConfig, map_config::MapConfig, rows_editor::RowsEditor};
 
 pub enum Page {
     MainMenu,
@@ -46,9 +46,9 @@ pub struct Win {
     levels_count: u8,
 
     page: Page,
-    map_or_level: u8,
     pub map_config: MapConfig,
     col_text: UIString,
+    pub level_config: LevelConfig,
 
     selected: Option<(String, usize, Option<usize>)>,
     main_menu_page: Grid<Win>,
@@ -84,9 +84,9 @@ impl Win {
             maps_count: maps_count as u8,
             levels_count: levels_count as u8,
             page: Page::UnInitMainMenu,
-            map_or_level: 0,
             map_config: MapConfig::empty(),
             col_text: UIString::empty(&textures()?.font),
+            level_config: LevelConfig::empty(),
             selected: None,
             main_menu_page: unsafe { Grid::empty() },
             map_page: unsafe { Grid::empty() },
@@ -170,20 +170,24 @@ impl Win {
         })?;
         let cols = map_config.map.cols.to_string();
 
-        (
-            self.page,
-            self.selected,
-            self.map_config,
-            self.map_or_level,
-            self.col_text,
-        ) = (
+        (self.page, self.selected, self.map_config, self.col_text) = (
             Page::UnInitMap,
             None,
             map_config,
-            map,
             UIString::new(&textures()?.font, cols)?.ok_or("cant create col".to_owned())?,
         );
 
+        Ok(())
+    }
+
+    fn set_level(&mut self, canvas: &mut Canvas<Window>, level: u8) -> Result<(), String> {
+        let _self = self as *mut Win;
+
+        let level_config = LevelConfig::new(level)?;
+        self.level_config.grid_init(canvas, unsafe {
+            _self.as_mut().ok_or("unwrap ptr".to_owned())?
+        })?;
+        (self.page, self.level_config) = (Page::UnInitLevel, level_config);
         Ok(())
     }
 
@@ -204,6 +208,7 @@ impl GameWindow for Win {
     fn init(&mut self, _: &mut Canvas<Window>) -> Result<(), String> {
         let font = &textures()?.font;
         let map_config = &mut self.map_config as *mut MapConfig;
+        let level_config = &mut self.level_config as *mut LevelConfig;
         self.main_menu_page = simple_grid!(
             self,
             Win,
@@ -247,10 +252,8 @@ impl GameWindow for Win {
                         Pos { x: 0, y: level as usize * 2 },
                         Box::new(UIRect::new(
                             font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
-                            move |_self: &mut Win, _, _, _, _| {
-                                _self.page = Page::UnInitLevel;
-                                _self.map_or_level = level;
-                                Ok(())
+                            move |_self: &mut Win, _, _, _, canvas| {
+                                _self.set_level(canvas, level)
                             })).text(Box::new(
                                 move |_self,_| {
                                 UIString::new(font, format!("{:0>3}", level+1)).map(|s| (s, Color::WHITE))
@@ -347,6 +350,7 @@ impl GameWindow for Win {
             RowType::Ratio(620.),
             RowType::Ratio(100.);
             Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
+            Pos{x:1,y:1} => RefElement::new(unsafe{level_config.as_mut().ok_or("unwrap ptr")?}),
         );
         Ok(())
     }

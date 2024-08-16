@@ -233,6 +233,13 @@ impl<Parent, Child: GridChildren<Parent>> GridChildren<Parent> for ScrollView<Pa
                 mouse_x,
                 mouse_y,
             } => {
+                if self.child_size.0 > self.surface.width() {
+                    self.h_scroll = (self.h_scroll - scroll_x * 0.1).clamp(0., 1.);
+                }
+                if self.child_size.1 > self.surface.height() {
+                    self.v_scroll = (self.v_scroll - scroll_y * 0.1).clamp(0., 1.);
+                }
+
                 let (mouse_x, mouse_y) = self.offset_event(mouse_x, mouse_y);
                 Event::MouseWheel {
                     which,
