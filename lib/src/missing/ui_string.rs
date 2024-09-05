@@ -58,6 +58,13 @@ impl UIString {
         string_size(font, text.as_str()).map(|t| t.map(|_| Self { font, text }))
     }
 
+    pub fn new_const(font: &'static Font<'static, 'static>, text: &str) -> Self {
+        Self {
+            font,
+            text: text.to_owned(),
+        }
+    }
+
     pub const fn empty(font: &'static Font<'static, 'static>) -> Self {
         Self {
             font,

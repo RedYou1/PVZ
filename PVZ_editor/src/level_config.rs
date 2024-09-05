@@ -3,7 +3,7 @@ use std::{collections::HashMap, time::Duration};
 use pvz::{
     level::{config::Map, Level},
     textures::textures,
-    zombie::zombie_from_id,
+    zombie::{valide_zombie_id, zombie_from_id},
 };
 use sdl::{
     event::Event,
@@ -29,17 +29,48 @@ pub struct LevelConfig {
     level: Level,
     surface: FRect,
     grid: Grid<LevelConfig>,
+    action: Option<Box<dyn FnMut(&mut LevelConfig) -> Result<(), String>>>,
     waves: Vec<(UIString, Vec<(UIString, UIString)>)>,
     selected: Option<(String, usize, Option<usize>)>,
 }
 
 impl LevelConfig {
     pub fn new(id: u8) -> Result<Self, String> {
+        let level = Level::load(id).map_err(|e| e.to_string())?;
+        let font = &textures()?.font;
+        let waves = level
+            .spawn_waits
+            .iter()
+            .enumerate()
+            .flat_map(|(i, wait)| {
+                let mut zombies = HashMap::new();
+                for z in level.spawn_zombies[i].iter().map(|z| z.0) {
+                    if let Some(v) = zombies.get_mut(&z) {
+                        *v += 1;
+                    } else {
+                        zombies.insert(z, 1);
+                    }
+                }
+                Ok::<(UIString, Vec<(UIString, UIString)>), String>((
+                    UIString::new(font, wait.as_secs().to_string())?.ok_or("sized".to_owned())?,
+                    zombies
+                        .into_iter()
+                        .flat_map(|(k, v)| {
+                            Ok::<(UIString, UIString), String>((
+                                UIString::new(font, k.to_string())?.ok_or("sized".to_owned())?,
+                                UIString::new(font, v.to_string())?.ok_or("sized".to_owned())?,
+                            ))
+                        })
+                        .collect(),
+                ))
+            })
+            .collect();
         Ok(Self {
-            level: Level::load(id).map_err(|e| e.to_string())?,
+            level,
             surface: FRect::new(0., 0., 0., 0.),
             grid: unsafe { Grid::empty() },
-            waves: Vec::new(),
+            action: None,
+            waves,
             selected: None,
         })
     }
@@ -74,6 +105,7 @@ impl LevelConfig {
             },
             surface: FRect::new(0., 0., 0., 0.),
             grid: unsafe { Grid::empty() },
+            action: None,
             waves: Vec::new(),
             selected: None,
         }
@@ -82,38 +114,6 @@ impl LevelConfig {
     #[allow(clippy::too_many_lines)]
     fn reset(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
         let font = &textures()?.font;
-        self.waves = self
-            .level
-            .spawn_waits
-            .iter()
-            .enumerate()
-            .flat_map(|(i, wait)| {
-                let mut zombies: HashMap<u8, u8> = HashMap::with_capacity(3);
-                for z in self.level.spawn_zombies[i]
-                    .iter()
-                    .map(|(_type, _, _)| *_type)
-                {
-                    if let Some(zz) = zombies.get_mut(&z) {
-                        *zz += 1;
-                    } else {
-                        zombies.insert(z, 1);
-                    }
-                }
-                Ok::<(UIString, Vec<(UIString, UIString)>), String>((
-                    UIString::new(font, wait.as_secs().to_string())?.ok_or("sized".to_owned())?,
-                    zombies
-                        .into_iter()
-                        .flat_map(|(k, v)| {
-                            Ok::<(UIString, UIString), String>((
-                                UIString::new(font, k.to_string())?.ok_or("sized".to_owned())?,
-                                UIString::new(font, v.to_string())?.ok_or("sized".to_owned())?,
-                            ))
-                        })
-                        .collect(),
-                ))
-            })
-            .collect();
-
         let mut elements = HashMap::with_capacity(self.waves.len() * 3);
         let mut i = 0;
         for (i1, (time, zombies)) in self.waves.iter_mut().enumerate() {
@@ -128,7 +128,13 @@ impl LevelConfig {
                     Box::new(|_, _| Color::RGBA(255, 255, 255, 100)),
                     Box::new(|_, _| Color::WHITE),
                     Box::new(|_, _| Color::WHITE),
-                    Box::new(|_, _| Color::BLACK),
+                    Box::new(|_, t| {
+                        if t.text().as_str().parse::<u64>().is_ok() {
+                            Color::BLACK
+                        } else {
+                            Color::RED
+                        }
+                    }),
                 )) as Box<dyn GridChildren<LevelConfig>>,
             );
             for (i2, (_type, amount)) in zombies.iter_mut().enumerate() {
@@ -143,7 +149,14 @@ impl LevelConfig {
                         Box::new(|_, _| Color::RGBA(255, 255, 255, 100)),
                         Box::new(|_, _| Color::WHITE),
                         Box::new(|_, _| Color::WHITE),
-                        Box::new(|_, _| Color::BLACK),
+                        Box::new(|_, t| {
+                            if let Ok(id) = t.text().as_str().parse::<u8>() {
+                                if valide_zombie_id(id) {
+                                    return Color::BLACK;
+                                }
+                            }
+                            Color::RED
+                        }),
                     )) as Box<dyn GridChildren<LevelConfig>>,
                 );
                 elements.insert(
@@ -157,7 +170,13 @@ impl LevelConfig {
                         Box::new(|_, _| Color::RGBA(255, 255, 255, 100)),
                         Box::new(|_, _| Color::WHITE),
                         Box::new(|_, _| Color::WHITE),
-                        Box::new(|_, _| Color::BLACK),
+                        Box::new(|_, t| {
+                            if t.text().as_str().parse::<usize>().is_ok() {
+                                Color::BLACK
+                            } else {
+                                Color::RED
+                            }
+                        }),
                     )) as Box<dyn GridChildren<LevelConfig>>,
                 );
                 elements.insert(
@@ -188,6 +207,145 @@ impl LevelConfig {
                 );
                 i += 1;
             }
+            elements.insert(
+                Pos { x: 0, y: i },
+                Box::new(
+                    UIRect::new(
+                        font,
+                        Box::new(|_, _| StateEnum::Enable),
+                        Box::new(|_, _| Color::BLACK),
+                    )
+                    .text(Box::new(|_, _| {
+                        Ok((UIString::new(font, "+ Zombie".to_owned())?, Color::WHITE))
+                    }))
+                    .action(Box::new(
+                        move |_self: &mut LevelConfig, _, _, _, _| {
+                            _self.action = Some(Box::new(move |_self| {
+                                let font = &textures()?.font;
+                                _self.waves[i1].1.push((
+                                    UIString::new_const(font, "0"),
+                                    UIString::new_const(font, "0"),
+                                ));
+                                Ok(())
+                            }));
+                            Ok(())
+                        },
+                    )),
+                ) as Box<dyn GridChildren<LevelConfig>>,
+            );
+            elements.insert(
+                Pos { x: 2, y: i },
+                Box::new(
+                    UIRect::new(
+                        font,
+                        Box::new(|_, _| StateEnum::Enable),
+                        Box::new(|_, _| Color::BLACK),
+                    )
+                    .text(Box::new(|_, _| {
+                        Ok((UIString::new(font, "- Zombie".to_owned())?, Color::WHITE))
+                    }))
+                    .action(Box::new(
+                        move |_self: &mut LevelConfig, _, _, _, _| {
+                            _self.action = Some(Box::new(move |_self| {
+                                _self.waves[i1].1.pop();
+                                if _self.waves[i1].1.is_empty() {
+                                    _self.waves.remove(i1);
+                                }
+                                Ok(())
+                            }));
+                            Ok(())
+                        },
+                    )),
+                ) as Box<dyn GridChildren<LevelConfig>>,
+            );
+            i += 1;
+            elements.insert(
+                Pos { x: 0, y: i },
+                Box::new(
+                    UIRect::new(
+                        font,
+                        Box::new(|_, _| StateEnum::Enable),
+                        Box::new(|_, _| Color::BLACK),
+                    )
+                    .text(Box::new(|_, _| {
+                        Ok((UIString::new(font, "+ Wave".to_owned())?, Color::WHITE))
+                    }))
+                    .action(Box::new(
+                        move |_self: &mut LevelConfig, _, _, _, _| {
+                            _self.action = Some(Box::new(move |_self| {
+                                let font = &textures()?.font;
+                                _self.waves.insert(
+                                    i1 + 1,
+                                    (
+                                        UIString::new_const(font, "0"),
+                                        vec![(
+                                            UIString::new_const(font, "0"),
+                                            UIString::new_const(font, "0"),
+                                        )],
+                                    ),
+                                );
+                                Ok(())
+                            }));
+                            Ok(())
+                        },
+                    )),
+                ) as Box<dyn GridChildren<LevelConfig>>,
+            );
+            elements.insert(
+                Pos { x: 2, y: i },
+                Box::new(
+                    UIRect::new(
+                        font,
+                        Box::new(|_, _| StateEnum::Enable),
+                        Box::new(|_, _| Color::BLACK),
+                    )
+                    .text(Box::new(|_, _| {
+                        Ok((UIString::new(font, "- Wave".to_owned())?, Color::WHITE))
+                    }))
+                    .action(Box::new(
+                        move |_self: &mut LevelConfig, _, _, _, _| {
+                            _self.action = Some(Box::new(move |_self| {
+                                _self.waves.remove(i1);
+                                Ok(())
+                            }));
+                            Ok(())
+                        },
+                    )),
+                ) as Box<dyn GridChildren<LevelConfig>>,
+            );
+            i += 1;
+        }
+        if i == 0 {
+            elements.insert(
+                Pos { x: 0, y: i },
+                Box::new(
+                    UIRect::new(
+                        font,
+                        Box::new(|_, _| StateEnum::Enable),
+                        Box::new(|_, _| Color::BLACK),
+                    )
+                    .text(Box::new(|_, _| {
+                        Ok((UIString::new(font, "+ Wave".to_owned())?, Color::WHITE))
+                    }))
+                    .action(Box::new(
+                        move |_self: &mut LevelConfig, _, _, _, _| {
+                            _self.action = Some(Box::new(|_self| {
+                                let font = &textures()?.font;
+                                _self.waves.push((
+                                    UIString::new_const(font, "0"),
+                                    vec![(
+                                        UIString::new_const(font, "0"),
+                                        UIString::new_const(font, "0"),
+                                    )],
+                                ));
+                                Ok(())
+                            }));
+                            Ok(())
+                        },
+                    )),
+                ) as Box<dyn GridChildren<LevelConfig>>,
+            );
+            i = 1;
         }
 
         self.grid = simple_grid!(
@@ -231,6 +389,16 @@ impl GridChildren<Win> for LevelConfig {
         _: &mut Win,
     ) -> Result<(), String> {
         self.surface = surface;
+        let _self = self as *mut Self;
+        if let Some(action) = self.action.as_mut() {
+            (*action)(unsafe {
+                _self
+                    .as_mut()
+                    .ok_or("unwrap self level_config".to_owned())?
+            })?;
+            self.reset(canvas)?;
+            self.action = None;
+        }
         self.grid.init_frame(canvas, surface)
     }
 

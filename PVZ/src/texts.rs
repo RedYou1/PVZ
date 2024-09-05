@@ -37,34 +37,30 @@ pub fn texts(lang: Lang) -> Result<&'static Texts, String> {
 pub fn load_texts(font: &'static Font<'static, 'static>) -> Result<(), String> {
     unsafe {
         EN = Some(Texts {
-            lang: UIString::new(font, "English".to_owned())?.expect("Constant text"),
-            quit: UIString::new(font, "Quit".to_owned())?.expect("Constant text"),
-            full_screen: UIString::new(font, "Full screen".to_owned())?.expect("Constant text"),
-            _return: UIString::new(font, "Return".to_owned())?.expect("Constant text"),
-            menu: UIString::new(font, "Menu".to_owned())?.expect("Constant text"),
-            start: UIString::new(font, "Start".to_owned())?.expect("Constant text"),
-            win: UIString::new(font, "Win".to_owned())?.expect("Constant text"),
-            lost: UIString::new(font, "Lost".to_owned())?.expect("Constant text"),
-            update_available: UIString::new(font, "An update is available.".to_owned())?
-                .expect("Constant text"),
-            up_to_date: UIString::new(font, "You are up to date.".to_owned())?
-                .expect("Constant text"),
-            loading: UIString::new(font, "Loading...".to_owned())?.expect("Constant text"),
+            lang: UIString::new_const(font, "English"),
+            quit: UIString::new_const(font, "Quit"),
+            full_screen: UIString::new_const(font, "Full screen"),
+            _return: UIString::new_const(font, "Return"),
+            menu: UIString::new_const(font, "Menu"),
+            start: UIString::new_const(font, "Start"),
+            win: UIString::new_const(font, "Win"),
+            lost: UIString::new_const(font, "Lost"),
+            update_available: UIString::new_const(font, "An update is available."),
+            up_to_date: UIString::new_const(font, "You are up to date."),
+            loading: UIString::new_const(font, "Loading..."),
         });
         FR = Some(Texts {
-            lang: UIString::new(font, "Français".to_owned())?.expect("Constant text"),
-            quit: UIString::new(font, "Quitter".to_owned())?.expect("Constant text"),
-            full_screen: UIString::new(font, "Plein écran".to_owned())?.expect("Constant text"),
-            _return: UIString::new(font, "Retour".to_owned())?.expect("Constant text"),
-            menu: UIString::new(font, "Menu".to_owned())?.expect("Constant text"),
-            start: UIString::new(font, "Commencer".to_owned())?.expect("Constant text"),
-            win: UIString::new(font, "Victoire".to_owned())?.expect("Constant text"),
-            lost: UIString::new(font, "Défaite".to_owned())?.expect("Constant text"),
-            update_available: UIString::new(font, "Une mise à jour est disponible.".to_owned())?
-                .expect("Constant text"),
-            up_to_date: UIString::new(font, "Vous êtes à jour.".to_owned())?
-                .expect("Constant text"),
-            loading: UIString::new(font, "Chargement...".to_owned())?.expect("Constant text"),
+            lang: UIString::new_const(font, "Français"),
+            quit: UIString::new_const(font, "Quitter"),
+            full_screen: UIString::new_const(font, "Plein écran"),
+            _return: UIString::new_const(font, "Retour"),
+            menu: UIString::new_const(font, "Menu"),
+            start: UIString::new_const(font, "Commencer"),
+            win: UIString::new_const(font, "Victoire"),
+            lost: UIString::new_const(font, "Défaite"),
+            update_available: UIString::new_const(font, "Une mise à jour est disponible."),
+            up_to_date: UIString::new_const(font, "Vous êtes à jour."),
+            loading: UIString::new_const(font, "Chargement..."),
         });
     }
     Ok(())

@@ -20,6 +20,10 @@ pub fn zombie_from_id(id: u8) -> Box<dyn Zombie> {
     }
 }
 
+pub fn valide_zombie_id(id: u8) -> bool {
+    (0..=1).contains(&id)
+}
+
 pub trait Zombie {
     fn texture(&self) -> Result<&'static Texture<'static>, String>;
     fn rect(&self, y: f32) -> FRect;
