@@ -65,20 +65,22 @@ impl<Parent, Child: GridChildren<Parent>> ScrollView<Parent, Child> {
     }
 
     fn h_scroll(&self) -> FRect {
+        let w = (2. * self.surface.width() - self.child_size.0).max(30.);
         FRect::new(
-            self.surface.x() + self.h_scroll * (self.child_size.0 - self.surface.width()),
+            self.surface.x() + self.h_scroll * (self.surface.width() - w),
             self.surface.y() + self.surface.height() - 30.,
-            self.surface.width() - (self.child_size.0 - self.surface.width()),
+            w,
             30.,
         )
     }
 
     fn v_scroll(&self) -> FRect {
+        let h = (2. * self.surface.height() - self.child_size.1).max(30.);
         FRect::new(
             self.surface.x() + self.surface.width() - 30.,
-            self.surface.y() + self.v_scroll * (self.child_size.1 - self.surface.height()),
+            self.surface.y() + self.v_scroll * (self.surface.height() - h),
             30.,
-            self.surface.height() - (self.child_size.1 - self.surface.height()),
+            h,
         )
     }
 }

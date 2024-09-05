@@ -99,27 +99,12 @@ impl LevelConfig {
                         zombies.insert(z, 1);
                     }
                 }
-                Ok::<
-                    (
-                        sdl::missing::ui_string::UIString,
-                        std::vec::Vec<(
-                            sdl::missing::ui_string::UIString,
-                            sdl::missing::ui_string::UIString,
-                        )>,
-                    ),
-                    String,
-                >((
+                Ok::<(UIString, Vec<(UIString, UIString)>), String>((
                     UIString::new(font, wait.as_secs().to_string())?.ok_or("sized".to_owned())?,
                     zombies
                         .into_iter()
                         .flat_map(|(k, v)| {
-                            Ok::<
-                                (
-                                    sdl::missing::ui_string::UIString,
-                                    sdl::missing::ui_string::UIString,
-                                ),
-                                String,
-                            >((
+                            Ok::<(UIString, UIString), String>((
                                 UIString::new(font, k.to_string())?.ok_or("sized".to_owned())?,
                                 UIString::new(font, v.to_string())?.ok_or("sized".to_owned())?,
                             ))
@@ -225,7 +210,7 @@ impl LevelConfig {
                     elements,
                 ),
                 1000.,
-                1200.,
+                95. * i as f32,
                 Box::new(|_, _| Color::RGBA(255, 255, 255, 100)),
             ),
         );
