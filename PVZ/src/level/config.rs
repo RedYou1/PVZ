@@ -132,7 +132,6 @@ impl Map {
 impl Level {
     pub fn save_config(&self) -> std::io::Result<()> {
         let mut level_data = Vec::with_capacity(32);
-        level_data.push(self.id);
         level_data.push(self.map.id);
         level_data.extend(self.money.to_le_bytes());
         level_data.push(self.spawn_waits.len() as u8);

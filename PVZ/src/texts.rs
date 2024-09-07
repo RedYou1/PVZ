@@ -14,6 +14,8 @@ pub struct Texts {
     pub update_available: UIString,
     pub up_to_date: UIString,
     pub loading: UIString,
+
+    pub save: UIString,
 }
 
 static mut EN: Option<Texts> = None;
@@ -48,6 +50,7 @@ pub fn load_texts(font: &'static Font<'static, 'static>) -> Result<(), String> {
             update_available: UIString::new_const(font, "An update is available."),
             up_to_date: UIString::new_const(font, "You are up to date."),
             loading: UIString::new_const(font, "Loading..."),
+            save: UIString::new_const(font, "Save"),
         });
         FR = Some(Texts {
             lang: UIString::new_const(font, "Français"),
@@ -61,6 +64,7 @@ pub fn load_texts(font: &'static Font<'static, 'static>) -> Result<(), String> {
             update_available: UIString::new_const(font, "Une mise à jour est disponible."),
             up_to_date: UIString::new_const(font, "Vous êtes à jour."),
             loading: UIString::new_const(font, "Chargement..."),
+            save: UIString::new_const(font, "Sauvegarder"),
         });
     }
     Ok(())

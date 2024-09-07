@@ -26,9 +26,11 @@ use sdl2::{
 use crate::win::Win;
 
 pub struct LevelConfig {
-    level: Level,
+    pub level: Level,
+    pub ok_save: bool,
     surface: FRect,
     grid: Grid<LevelConfig>,
+    #[allow(clippy::type_complexity)]
     action: Option<Box<dyn FnMut(&mut LevelConfig) -> Result<(), String>>>,
     waves: Vec<(UIString, Vec<(UIString, UIString)>)>,
     selected: Option<(String, usize, Option<usize>)>,
@@ -67,6 +69,7 @@ impl LevelConfig {
             .collect();
         Ok(Self {
             level,
+            ok_save: true,
             surface: FRect::new(0., 0., 0., 0.),
             grid: unsafe { Grid::empty() },
             action: None,
@@ -103,6 +106,7 @@ impl LevelConfig {
                 money: 0,
                 end: None,
             },
+            ok_save: true,
             surface: FRect::new(0., 0., 0., 0.),
             grid: unsafe { Grid::empty() },
             action: None,
@@ -129,7 +133,7 @@ impl LevelConfig {
                     Box::new(|_, _| Color::WHITE),
                     Box::new(|_, _| Color::WHITE),
                     Box::new(|_, t| {
-                        if t.text().as_str().parse::<u64>().is_ok() {
+                        if t.text().as_str().parse::<u8>().is_ok() {
                             Color::BLACK
                         } else {
                             Color::RED
@@ -171,7 +175,7 @@ impl LevelConfig {
                         Box::new(|_, _| Color::WHITE),
                         Box::new(|_, _| Color::WHITE),
                         Box::new(|_, t| {
-                            if t.text().as_str().parse::<usize>().is_ok() {
+                            if t.text().as_str().parse::<u8>().is_ok() {
                                 Color::BLACK
                             } else {
                                 Color::RED
@@ -375,6 +379,39 @@ impl LevelConfig {
 
         self.grid.init(canvas)
     }
+
+    pub fn try_save(&mut self) -> Result<(), String> {
+        self.level.spawn_waits = self
+            .waves
+            .iter()
+            .map(|(wait, _)| {
+                Ok(Duration::from_secs(
+                    wait.as_str().parse::<u8>().map_err(|e| e.to_string())? as u64,
+                ))
+            })
+            .collect::<Result<Vec<Duration>, String>>()?;
+        self.level.spawn_zombies = self
+            .waves
+            .iter()
+            .map(|(_, zombies)| {
+                Ok(zombies
+                    .iter()
+                    .map(|(zombie, amount)| {
+                        let zombie = zombie.as_str().parse::<u8>().map_err(|e| e.to_string())?;
+                        Ok::<Vec<(u8, f32, f32)>, String>(
+                            (0..amount.as_str().parse::<u8>().map_err(|e| e.to_string())?)
+                                .map(move |_| (zombie, 0., 0.))
+                                .collect(),
+                        )
+                    })
+                    .collect::<Result<Vec<Vec<(u8, f32, f32)>>, String>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect())
+            })
+            .collect::<Result<Vec<Vec<(u8, f32, f32)>>, String>>()?;
+        Ok(())
+    }
 }
 
 impl GridChildren<Win> for LevelConfig {
@@ -417,7 +454,9 @@ impl GridChildren<Win> for LevelConfig {
         elapsed: Duration,
         _: &mut Win,
     ) -> Result<(), String> {
-        self.grid.update(canvas, elapsed)
+        self.grid.update(canvas, elapsed)?;
+        self.ok_save = self.try_save().is_ok();
+        Ok(())
     }
 
     fn grid_draw(&self, canvas: &mut Canvas<Window>, _: &Win) -> Result<(), String> {
