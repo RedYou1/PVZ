@@ -20,6 +20,7 @@ use sdl2::{
     pixels::Color,
     rect::FRect,
     render::{Canvas, Texture},
+    ttf::Font,
     video::Window,
 };
 
@@ -30,6 +31,8 @@ pub struct LevelConfig {
     pub ok_save: bool,
     surface: FRect,
     grid: Grid<LevelConfig>,
+    pub money: UIString,
+    pub map: UIString,
     #[allow(clippy::type_complexity)]
     action: Option<Box<dyn FnMut(&mut LevelConfig) -> Result<(), String>>>,
     waves: Vec<(UIString, Vec<(UIString, UIString)>)>,
@@ -67,6 +70,10 @@ impl LevelConfig {
                 ))
             })
             .collect();
+        let map =
+            UIString::new(font, level.map.id.to_string())?.ok_or("map id too large".to_owned())?;
+        let money =
+            UIString::new(font, level.money.to_string())?.ok_or("money too large".to_owned())?;
         Ok(Self {
             level,
             ok_save: true,
@@ -75,10 +82,12 @@ impl LevelConfig {
             action: None,
             waves,
             selected: None,
+            map,
+            money,
         })
     }
 
-    pub fn empty() -> Self {
+    pub fn empty(font: &'static Font<'static, 'static>) -> Self {
         Self {
             level: Level {
                 id: 0,
@@ -112,6 +121,8 @@ impl LevelConfig {
             action: None,
             waves: Vec::new(),
             selected: None,
+            map: UIString::new_const(font, ""),
+            money: UIString::new_const(font, "50"),
         }
     }
 
@@ -381,6 +392,13 @@ impl LevelConfig {
     }
 
     pub fn try_save(&mut self) -> Result<(), String> {
+        self.level.money = self
+            .map
+            .as_str()
+            .parse::<u32>()
+            .map_err(|e| e.to_string())?;
+        self.level.map = Map::load(self.map.as_str().parse::<u8>().map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
         self.level.spawn_waits = self
             .waves
             .iter()

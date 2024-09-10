@@ -78,6 +78,8 @@ impl Win {
             return Err("Too much or no levels".to_owned());
         }
 
+        let font = &textures()?.font;
+
         Ok(Self {
             running: true,
             save: SaveFile::load()?,
@@ -85,8 +87,8 @@ impl Win {
             levels_count: levels_count as u8,
             page: Page::UnInitMainMenu,
             map_config: MapConfig::empty(),
-            col_text: UIString::empty(&textures()?.font),
-            level_config: LevelConfig::empty(),
+            col_text: UIString::empty(font),
+            level_config: LevelConfig::empty(font),
             selected: None,
             main_menu_page: unsafe { Grid::empty() },
             map_page: unsafe { Grid::empty() },
@@ -366,6 +368,69 @@ impl GameWindow for Win {
             RowType::Ratio(620.),
             RowType::Ratio(100.);
             Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
+            Pos{x:1,y:0} => simple_grid!(
+                self,
+                Win,
+                ColType::Ratio(1.),
+                ColType::Ratio(1.),
+                ColType::Ratio(1.);
+                RowType::Ratio(1.);
+                Pos{x:0,y:0} => TextBox::new(
+                    "money level".to_owned(),
+                    &mut self.selected,
+                    font,
+                    &mut self.level_config.money,
+                    Box::new(|_, _| StateEnum::Enable),
+                    Box::new(|_, _| Color::RGBA(255, 255, 255, 100)),
+                    Box::new(|_, _| Color::WHITE),
+                    Box::new(|_, _| Color::WHITE),
+                    Box::new(|_, t| {
+                        if t.text().as_str().parse::<u32>().is_ok() {
+                            Color::BLACK
+                        } else {
+                            Color::RED
+                        }
+                    }),
+                ),
+                Pos{x:1,y:0} => TextBox::new(
+                    "map level".to_owned(),
+                    &mut self.selected,
+                    font,
+                    &mut self.level_config.map,
+                    Box::new(|_, _| StateEnum::Enable),
+                    Box::new(|_, _| Color::RGBA(255, 255, 255, 100)),
+                    Box::new(|_, _| Color::WHITE),
+                    Box::new(|_, _| Color::WHITE),
+                    Box::new(|_self: &Win, t| {
+                        if let Ok(map) = t.text().as_str().parse::<u8>() {
+                            if map < _self.maps_count{
+                                return Color::BLACK;
+                            }
+                        }
+                        Color::RED
+                    }),
+                ),
+                Pos{x:2,y:0} => UIRect::new(
+                    font,
+                    Box::new(|_self: &Win, _| {
+                        if let Ok(map) = _self.level_config.map.as_str().parse::<u8>() {
+                            if map < _self.maps_count {
+                                return StateEnum::Enable;
+                            }
+                        }
+                        StateEnum::Hidden
+                    }),
+                    Box::new(|_, _| Color::BLACK),
+                )
+                .image(Box::new(|_self: &Win, _| {
+                    if let Ok(map) = _self.level_config.map.as_str().parse::<u8>() {
+                        if map < _self.maps_count {
+                            return Ok(&textures()?.maps[map as usize]);
+                        }
+                    }
+                    Err("Not supposed showing".to_owned())
+                }))
+            ),
             Pos{x:1,y:1} => RefElement::new(unsafe{level_config.as_mut().ok_or("unwrap ptr")?}),
             Pos{x:2,y:2} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_self: &Win,_| if _self.level_config.ok_save {Color::BLACK} else{Color::RED})).action(Box::new(Self::save_level)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.save.clone()), Color::WHITE)))),
         );
