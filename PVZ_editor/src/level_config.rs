@@ -28,7 +28,6 @@ use crate::win::Win;
 
 pub struct LevelConfig {
     pub level: Level,
-    pub ok_save: bool,
     surface: FRect,
     grid: Grid<LevelConfig>,
     pub money: UIString,
@@ -76,7 +75,6 @@ impl LevelConfig {
             UIString::new(font, level.money.to_string())?.ok_or("money too large".to_owned())?;
         Ok(Self {
             level,
-            ok_save: true,
             surface: FRect::new(0., 0., 0., 0.),
             grid: unsafe { Grid::empty() },
             action: None,
@@ -115,13 +113,12 @@ impl LevelConfig {
                 money: 0,
                 end: None,
             },
-            ok_save: true,
             surface: FRect::new(0., 0., 0., 0.),
             grid: unsafe { Grid::empty() },
             action: None,
             waves: Vec::new(),
             selected: None,
-            map: UIString::new_const(font, ""),
+            map: UIString::empty(font),
             money: UIString::new_const(font, "50"),
         }
     }
@@ -186,8 +183,12 @@ impl LevelConfig {
                         Box::new(|_, _| Color::WHITE),
                         Box::new(|_, _| Color::WHITE),
                         Box::new(|_, t| {
-                            if t.text().as_str().parse::<u8>().is_ok() {
-                                Color::BLACK
+                            if let Ok(t) = t.text().as_str().parse::<u8>() {
+                                if t != 0 {
+                                    Color::BLACK
+                                } else {
+                                    Color::RED
+                                }
                             } else {
                                 Color::RED
                             }
@@ -238,8 +239,8 @@ impl LevelConfig {
                             _self.action = Some(Box::new(move |_self| {
                                 let font = &textures()?.font;
                                 _self.waves[i1].1.push((
-                                    UIString::new_const(font, "0"),
-                                    UIString::new_const(font, "0"),
+                                    UIString::empty(font),
+                                    UIString::empty(font),
                                 ));
                                 Ok(())
                             }));
@@ -292,10 +293,10 @@ impl LevelConfig {
                                 _self.waves.insert(
                                     i1 + 1,
                                     (
-                                        UIString::new_const(font, "0"),
+                                        UIString::empty(font),
                                         vec![(
-                                            UIString::new_const(font, "0"),
-                                            UIString::new_const(font, "0"),
+                                            UIString::empty(font),
+                                            UIString::empty(font),
                                         )],
                                     ),
                                 );
@@ -347,10 +348,10 @@ impl LevelConfig {
                             _self.action = Some(Box::new(|_self| {
                                 let font = &textures()?.font;
                                 _self.waves.push((
-                                    UIString::new_const(font, "0"),
+                                    UIString::empty(font),
                                     vec![(
-                                        UIString::new_const(font, "0"),
-                                        UIString::new_const(font, "0"),
+                                        UIString::empty(font),
+                                        UIString::empty(font),
                                     )],
                                 ));
                                 Ok(())
@@ -393,7 +394,7 @@ impl LevelConfig {
 
     pub fn try_save(&mut self) -> Result<(), String> {
         self.level.money = self
-            .map
+            .money
             .as_str()
             .parse::<u32>()
             .map_err(|e| e.to_string())?;
@@ -416,8 +417,12 @@ impl LevelConfig {
                     .iter()
                     .map(|(zombie, amount)| {
                         let zombie = zombie.as_str().parse::<u8>().map_err(|e| e.to_string())?;
+                        let amount = amount.as_str().parse::<u8>().map_err(|e| e.to_string())?;
+                        if amount == 0 {
+                            return Err("Amount too low".to_owned());
+                        }
                         Ok::<Vec<(u8, f32, f32)>, String>(
-                            (0..amount.as_str().parse::<u8>().map_err(|e| e.to_string())?)
+                            (0..amount)
                                 .map(move |_| (zombie, 0., 0.))
                                 .collect(),
                         )
@@ -473,7 +478,6 @@ impl GridChildren<Win> for LevelConfig {
         _: &mut Win,
     ) -> Result<(), String> {
         self.grid.update(canvas, elapsed)?;
-        self.ok_save = self.try_save().is_ok();
         Ok(())
     }
 

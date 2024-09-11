@@ -236,8 +236,8 @@ fn generate_zombies_wave(
                 .map(|_| {
                     (
                         bytes[0],
-                        rng.gen_range((min_x)..(1. - width)),
-                        rng.gen_range((min_y - height)..(max_y - height)),
+                        rng.gen_range((min_x)..=(1. - width)),
+                        rng.gen_range((min_y - height)..=(max_y - height)),
                     )
                 })
                 .collect::<Vec<(u8, f32, f32)>>()

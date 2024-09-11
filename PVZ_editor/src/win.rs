@@ -46,6 +46,7 @@ pub struct Win {
     levels_count: u8,
 
     page: Page,
+    save_ok: bool,
     pub map_config: MapConfig,
     col_text: UIString,
     pub level_config: LevelConfig,
@@ -63,8 +64,16 @@ impl Win {
 
         let maps_count = fs::read_dir("assets/maps")
             .map_err(|e| e.to_string())?
-            .count()
-            / 2;
+            .filter(|f| {
+                if let Ok(d) = f {
+                    d.file_name()
+                        .to_str()
+                        .map_or(false, |s| s.to_lowercase().ends_with("data"))
+                } else {
+                    false
+                }
+            })
+            .count();
         if maps_count == 0
             || fs::read_dir("assets/maps")
                 .map_err(|e| e.to_string())?
@@ -82,6 +91,7 @@ impl Win {
 
         Ok(Self {
             running: true,
+            save_ok: false,
             save: SaveFile::load()?,
             maps_count: maps_count as u8,
             levels_count: levels_count as u8,
@@ -164,6 +174,7 @@ impl Win {
     }
 
     fn set_map(&mut self, canvas: &mut Canvas<Window>, map: u8) -> Result<(), String> {
+        self.save_ok = true;
         let _self = self as *mut Win;
 
         let map_config = MapConfig::new(map)?;
@@ -201,32 +212,20 @@ impl Win {
         Ok(())
     }
 
-    fn save_level(
-        &mut self,
-        _: &UIRect<Win>,
-        _: f32,
-        _: f32,
-        _: &mut Canvas<Window>,
-    ) -> Result<(), String> {
+    fn save_level(&mut self) -> Result<(), String> {
+        self.save_ok = false;
         if self.level_config.try_save().is_ok() {
             self.level_config
                 .level
                 .save_config()
                 .map_err(|e| e.to_string())?;
+            self.save_ok = true;
         }
         Ok(())
     }
-}
-impl GameWindow for Win {
-    fn running(&mut self) -> bool {
-        self.running
-    }
 
-    #[allow(clippy::too_many_lines)]
-    fn init(&mut self, _: &mut Canvas<Window>) -> Result<(), String> {
+    fn reset_main_menu(&mut self) -> Result<(), String> {
         let font = &textures()?.font;
-        let map_config = &mut self.map_config as *mut MapConfig;
-        let level_config = &mut self.level_config as *mut LevelConfig;
         self.main_menu_page = simple_grid!(
             self,
             Win,
@@ -280,6 +279,16 @@ impl GameWindow for Win {
                     )
                 }))
                 ), 235., 90. * self.levels_count as f32, Box::new(|_, _|Color::RGBA(200,200,200,200))),
+            Pos{x:3, y:2} => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK))
+                .action(Box::new(
+                    move |_self: &mut Win, _, _, _, canvas| {
+                        let level = _self.levels_count;
+                        _self.levels_count += 1;
+                        fs::write(format!("levels/{level}.data"), [0;6]).map_err(|e|e.to_string())?;
+                        _self.set_level(canvas, level)?;
+                        _self.reset_main_menu()
+                    }))
+                    .text(Box::new(move |_,_| Ok((Some(UIString::new_const(font, "Add Level")), Color::WHITE)))),
             Pos{x:5,y:1} => simple_grid!(
                 self,
                 Win,
@@ -296,6 +305,20 @@ impl GameWindow for Win {
                 Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::quit)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.quit.clone()), Color::WHITE)))),
             )
         );
+        Ok(())
+    }
+}
+impl GameWindow for Win {
+    fn running(&mut self) -> bool {
+        self.running
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn init(&mut self, _: &mut Canvas<Window>) -> Result<(), String> {
+        let font = &textures()?.font;
+        let map_config = &mut self.map_config as *mut MapConfig;
+        let level_config = &mut self.level_config as *mut LevelConfig;
+        self.reset_main_menu()?;
         self.map_page = simple_grid!(
             self,
             Win,
@@ -367,7 +390,7 @@ impl GameWindow for Win {
             RowType::Ratio(100.),
             RowType::Ratio(620.),
             RowType::Ratio(100.);
-            Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
+            Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_self: &Win,_| if _self.save_ok { Color::BLACK } else {Color::RED})).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
             Pos{x:1,y:0} => simple_grid!(
                 self,
                 Win,
@@ -432,7 +455,6 @@ impl GameWindow for Win {
                 }))
             ),
             Pos{x:1,y:1} => RefElement::new(unsafe{level_config.as_mut().ok_or("unwrap ptr")?}),
-            Pos{x:2,y:2} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_self: &Win,_| if _self.level_config.ok_save {Color::BLACK} else{Color::RED})).action(Box::new(Self::save_level)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.save.clone()), Color::WHITE)))),
         );
         Ok(())
     }
@@ -497,7 +519,10 @@ impl GameWindow for Win {
         match self.page {
             Page::MainMenu => self.main_menu_page.update(canvas, elapsed),
             Page::Map => self.map_page.update(canvas, elapsed),
-            Page::Level => self.level_page.update(canvas, elapsed),
+            Page::Level => {
+                self.level_page.update(canvas, elapsed)?;
+                self.save_level()
+            }
             _ => Ok(()),
         }
     }
