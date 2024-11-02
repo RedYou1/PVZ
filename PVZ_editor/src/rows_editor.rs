@@ -46,13 +46,17 @@ impl RowsEditor {
         let rows_element = (0..self.lens).flat_map(|i| {
             [
                 (
-                    Pos { x: 0, y: i as usize },
+                    Pos {
+                        x: 0,
+                        y: i as usize,
+                    },
                     Box::new(
                         UIRect::new(
-                            font,
                             Box::new(|_, _| StateEnum::Enable),
                             Box::new(move |_self: &RowsEditor, _| {
-                                if let Some(pvz::level::config::RowType::Grass) = _self.rows().get(i as usize) {
+                                if let Some(pvz::level::config::RowType::Grass) =
+                                    _self.rows().get(i as usize)
+                                {
                                     Color::GREEN
                                 } else {
                                     Color::RED
@@ -69,13 +73,17 @@ impl RowsEditor {
                     ) as Box<dyn GridChildren<RowsEditor>>,
                 ),
                 (
-                    Pos { x: 1, y: i as usize },
+                    Pos {
+                        x: 1,
+                        y: i as usize,
+                    },
                     Box::new(
                         UIRect::new(
-                            font,
                             Box::new(|_, _| StateEnum::Enable),
                             Box::new(move |_self: &RowsEditor, _| {
-                                if let Some(pvz::level::config::RowType::Water) = _self.rows().get(i as usize) {
+                                if let Some(pvz::level::config::RowType::Water) =
+                                    _self.rows().get(i as usize)
+                                {
                                     Color::GREEN
                                 } else {
                                     Color::RED

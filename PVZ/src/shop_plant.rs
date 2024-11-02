@@ -1,10 +1,6 @@
 use std::{marker::PhantomData, time::Duration};
 
-use sdl::{
-    event::Event,
-    grid::GridChildren,
-    missing::ui_string::{draw_string, UIString},
-};
+use sdl::{event::Event, grid::GridChildren, missing::ui_string::UIString};
 use sdl2::{mouse::MouseButton, pixels::Color, rect::FRect, render::Canvas, video::Window};
 
 use crate::{level::Level, plants::Plant, textures::textures};
@@ -91,9 +87,8 @@ impl<Func: FnMut(&mut Level, &dyn Plant, f32, f32)> GridChildren<Level> for Shop
         if text.is_none() {
             text = UIString::new(&textures()?.font, format!("{}$", self.plant.cost()))?;
         }
-        draw_string(
+        text.ok_or("can't draw money".to_owned())?.draw(
             canvas,
-            &textures()?.font,
             None,
             FRect::new(
                 self.surface.x(),
@@ -101,7 +96,6 @@ impl<Func: FnMut(&mut Level, &dyn Plant, f32, f32)> GridChildren<Level> for Shop
                 self.surface.width(),
                 self.surface.height() * 30. / 106.,
             ),
-            &text.ok_or("can't draw money".to_owned())?,
             Color::WHITE,
         )
     }

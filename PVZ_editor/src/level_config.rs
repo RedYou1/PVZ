@@ -199,7 +199,6 @@ impl LevelConfig {
                     Pos { x: 6, y: i },
                     Box::new(
                         UIRect::new(
-                            font,
                             Box::new(move |_self: &LevelConfig, _| {
                                 match _self.waves[i1].1[i2].0.as_str().parse::<u8>() {
                                     Ok(0) | Ok(1) => StateEnum::Enable,
@@ -227,7 +226,6 @@ impl LevelConfig {
                 Pos { x: 0, y: i },
                 Box::new(
                     UIRect::new(
-                        font,
                         Box::new(|_, _| StateEnum::Enable),
                         Box::new(|_, _| Color::BLACK),
                     )
@@ -238,10 +236,9 @@ impl LevelConfig {
                         move |_self: &mut LevelConfig, _, _, _, _| {
                             _self.action = Some(Box::new(move |_self| {
                                 let font = &textures()?.font;
-                                _self.waves[i1].1.push((
-                                    UIString::empty(font),
-                                    UIString::empty(font),
-                                ));
+                                _self.waves[i1]
+                                    .1
+                                    .push((UIString::empty(font), UIString::empty(font)));
                                 Ok(())
                             }));
                             Ok(())
@@ -253,7 +250,6 @@ impl LevelConfig {
                 Pos { x: 2, y: i },
                 Box::new(
                     UIRect::new(
-                        font,
                         Box::new(|_, _| StateEnum::Enable),
                         Box::new(|_, _| Color::BLACK),
                     )
@@ -279,7 +275,6 @@ impl LevelConfig {
                 Pos { x: 0, y: i },
                 Box::new(
                     UIRect::new(
-                        font,
                         Box::new(|_, _| StateEnum::Enable),
                         Box::new(|_, _| Color::BLACK),
                     )
@@ -294,10 +289,7 @@ impl LevelConfig {
                                     i1 + 1,
                                     (
                                         UIString::empty(font),
-                                        vec![(
-                                            UIString::empty(font),
-                                            UIString::empty(font),
-                                        )],
+                                        vec![(UIString::empty(font), UIString::empty(font))],
                                     ),
                                 );
                                 Ok(())
@@ -311,7 +303,6 @@ impl LevelConfig {
                 Pos { x: 2, y: i },
                 Box::new(
                     UIRect::new(
-                        font,
                         Box::new(|_, _| StateEnum::Enable),
                         Box::new(|_, _| Color::BLACK),
                     )
@@ -336,7 +327,6 @@ impl LevelConfig {
                 Pos { x: 0, y: i },
                 Box::new(
                     UIRect::new(
-                        font,
                         Box::new(|_, _| StateEnum::Enable),
                         Box::new(|_, _| Color::BLACK),
                     )
@@ -349,10 +339,7 @@ impl LevelConfig {
                                 let font = &textures()?.font;
                                 _self.waves.push((
                                     UIString::empty(font),
-                                    vec![(
-                                        UIString::empty(font),
-                                        UIString::empty(font),
-                                    )],
+                                    vec![(UIString::empty(font), UIString::empty(font))],
                                 ));
                                 Ok(())
                             }));
@@ -422,9 +409,7 @@ impl LevelConfig {
                             return Err("Amount too low".to_owned());
                         }
                         Ok::<Vec<(u8, f32, f32)>, String>(
-                            (0..amount)
-                                .map(move |_| (zombie, 0., 0.))
-                                .collect(),
+                            (0..amount).map(move |_| (zombie, 0., 0.)).collect(),
                         )
                     })
                     .collect::<Result<Vec<Vec<(u8, f32, f32)>>, String>>()?

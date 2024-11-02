@@ -4,13 +4,12 @@ use crate::{
     event::Event,
     functions::{FnAction, FnColor, FnImage, FnState, FnText, StateEnum},
     grid::GridChildren,
-    missing::ui_string::{draw_string, UIString},
+    missing::ui_string::UIString,
 };
-use sdl2::{mouse::MouseButton, rect::FRect, render::Canvas, ttf::Font, video::Window};
+use sdl2::{mouse::MouseButton, rect::FRect, render::Canvas, video::Window};
 
 pub struct UIRect<Parent> {
     parent: PhantomData<Parent>,
-    font: &'static Font<'static, 'static>,
     action: Option<FnAction<Parent, Self>>,
     surface: FRect,
     text: Option<FnText<Parent, Self>>,
@@ -20,14 +19,9 @@ pub struct UIRect<Parent> {
     image: Option<FnImage<Parent, Self>>,
 }
 impl<Parent> UIRect<Parent> {
-    pub fn new(
-        font: &'static Font<'static, 'static>,
-        state: FnState<Parent, Self>,
-        back_color: FnColor<Parent, Self>,
-    ) -> Self {
+    pub fn new(state: FnState<Parent, Self>, back_color: FnColor<Parent, Self>) -> Self {
         Self {
             parent: PhantomData,
-            font,
             action: None,
             surface: FRect::new(0., 0., 0., 0.),
             text: None,
@@ -140,7 +134,7 @@ impl<Parent> GridChildren<Parent> for UIRect<Parent> {
         }
         if let Some(text) = self.text.as_ref() {
             if let (Some(text), color) = text(parent, self)? {
-                draw_string(canvas, self.font, None, self.surface, &text, color)?;
+                text.draw(canvas, None, self.surface, color)?;
             }
         }
         Ok(())

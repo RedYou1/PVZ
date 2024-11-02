@@ -15,35 +15,6 @@ pub fn string_size(font: &Font, text: &str) -> Result<Option<(f32, f32)>, String
     }
 }
 
-pub fn draw_string(
-    canvas: &mut Canvas<Window>,
-    font: &Font,
-    from: Option<FRect>,
-    to: FRect,
-    text: &UIString,
-    color: Color,
-) -> Result<(), String> {
-    canvas.copy_f(
-        &canvas
-            .texture_creator()
-            .create_texture_from_surface(
-                font.render(text.as_ref())
-                    .blended(color)
-                    .map_err(|e| e.to_string())?,
-            )
-            .map_err(|e| e.to_string())?,
-        from.map(|rect| {
-            Rect::new(
-                rect.x() as i32,
-                rect.y() as i32,
-                rect.width() as u32,
-                rect.height() as u32,
-            )
-        }),
-        to,
-    )
-}
-
 #[derive(Clone)]
 pub struct UIString {
     font: &'static Font<'static, 'static>,
@@ -121,7 +92,6 @@ impl UIString {
     pub fn draw(
         &self,
         canvas: &mut Canvas<Window>,
-        font: &Font,
         from: Option<FRect>,
         to: FRect,
         color: Color,
@@ -130,7 +100,8 @@ impl UIString {
             &canvas
                 .texture_creator()
                 .create_texture_from_surface(
-                    font.render(&self.text)
+                    self.font
+                        .render(&self.text)
                         .blended(color)
                         .map_err(|e| e.to_string())?,
                 )

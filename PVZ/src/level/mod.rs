@@ -3,10 +3,7 @@ use sdl::{
     event::Event,
     functions::StateEnum,
     grid::{ColType, Grid, GridChildren, Pos, RowType},
-    missing::{
-        rect::scale,
-        ui_string::{draw_string, UIString},
-    },
+    missing::{rect::scale, ui_string::UIString},
     ui_rect::UIRect,
     user_control::UserControl,
 };
@@ -129,7 +126,6 @@ impl Level {
             Pos { x: 1, y: moneyid },
             Box::new(
                 UIRect::new(
-                    &textures()?.font,
                     Box::new(|_, _| StateEnum::Enable),
                     Box::new(|_, _| Color::BLACK),
                 )
@@ -334,16 +330,15 @@ impl GridChildren<Win> for Level {
             started.draw(canvas)?;
             self.draw_suns(canvas)?;
             if let Some(end) = self.end {
-                draw_string(
+                if end {
+                    &parent.texts()?.win
+                } else {
+                    &parent.texts()?.lost
+                }
+                .draw(
                     canvas,
-                    &textures()?.font,
                     None,
                     scale(self.surface, FRect::new(0.25, 0.25, 0.5, 0.5)),
-                    if end {
-                        &parent.texts()?.win
-                    } else {
-                        &parent.texts()?.lost
-                    },
                     Color::WHITE,
                 )?;
             }

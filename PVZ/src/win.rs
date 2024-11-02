@@ -140,7 +140,6 @@ impl GameWindow for Win {
 
     #[allow(clippy::too_many_lines)]
     fn init(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        let font = &textures()?.font;
         self.main_menu = simple_grid!(
             self,
             Win,
@@ -165,10 +164,10 @@ impl GameWindow for Win {
                 RowType::Ratio(10.),
                 RowType::Ratio(1.),
                 RowType::Ratio(10.);
-                Pos { x: 0, y: 0 } => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::next_lang)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.lang.clone()), Color::WHITE)))),
-                Pos { x: 0, y: 2 } => UIRect::new(font,Box::new(|_:&Win,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(|_self,_,_,_,canvas|_self.change_full_screen(canvas))).text(Box::new(|_self, _| Ok((Some(_self.texts()?.full_screen.clone()), Color::WHITE)))),
-                Pos { x: 0, y: 4 } => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::quit)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.quit.clone()), Color::WHITE)))),
-                Pos { x: 0, y: 6 } => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win,_|Ok((Some(match unsafe { UPDATE_AVAILABLE.as_ref() } {
+                Pos { x: 0, y: 0 } => UIRect::new(Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::next_lang)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.lang.clone()), Color::WHITE)))),
+                Pos { x: 0, y: 2 } => UIRect::new(Box::new(|_:&Win,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(|_self,_,_,_,canvas|_self.change_full_screen(canvas))).text(Box::new(|_self, _| Ok((Some(_self.texts()?.full_screen.clone()), Color::WHITE)))),
+                Pos { x: 0, y: 4 } => UIRect::new(Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::quit)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.quit.clone()), Color::WHITE)))),
+                Pos { x: 0, y: 6 } => UIRect::new(Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win,_|Ok((Some(match unsafe { UPDATE_AVAILABLE.as_ref() } {
                     Some(Ok(true)) => _self.texts()?.update_available.clone(),
                     Some(Ok(false)) => _self.texts()?.up_to_date.clone(),
                     Some(Err(e)) => UIString::new(&textures()?.font, e.clone())?.ok_or("Error too long".to_owned())?,
@@ -183,7 +182,7 @@ impl GameWindow for Win {
                     (
                         Pos { x: 0, y: level as usize * 2 },
                         Box::new(UIRect::new(
-                            font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
+                            Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
                             move |_self: &mut Win, _, _, _, canvas| {
                                 let win = _self as *mut Win;
                                 _self.level = Some(
@@ -221,10 +220,10 @@ impl GameWindow for Win {
             RowType::Ratio(20.),
             RowType::Ratio(40.),
             RowType::Ratio(300.);
-            Pos { x: 1, y: 1 } => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::next_lang)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.lang.clone()), Color::WHITE)))),
-            Pos { x: 1, y: 3 } => UIRect::new(font,Box::new(|_:&Win,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(|_self,_,_,_,canvas|_self.change_full_screen(canvas))).text(Box::new(|_self, _| Ok((Some(_self.texts()?.full_screen.clone()), Color::WHITE)))),
-            Pos { x: 1, y: 5 } => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
-            Pos { x: 1, y: 7 } => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::quit)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.quit.clone()), Color::WHITE)))),
+            Pos { x: 1, y: 1 } => UIRect::new(Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::next_lang)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.lang.clone()), Color::WHITE)))),
+            Pos { x: 1, y: 3 } => UIRect::new(Box::new(|_:&Win,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(|_self,_,_,_,canvas|_self.change_full_screen(canvas))).text(Box::new(|_self, _| Ok((Some(_self.texts()?.full_screen.clone()), Color::WHITE)))),
+            Pos { x: 1, y: 5 } => UIRect::new(Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
+            Pos { x: 1, y: 7 } => UIRect::new(Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::quit)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.quit.clone()), Color::WHITE)))),
         );
         self.overlay = simple_grid!(
             self,
@@ -237,8 +236,8 @@ impl GameWindow for Win {
             RowType::Ratio(500.),
             RowType::Ratio(100.),
             RowType::Ratio(10.);
-            Pos { x: 1, y: 1 } => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::menu)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.menu.clone()), Color::WHITE)))),
-            Pos { x: 1, y: 3 } => UIRect::new(font,Box::new(|_self: &Win,_| if let Some(level) = _self.level.as_ref() {
+            Pos { x: 1, y: 1 } => UIRect::new(Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(Self::menu)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.menu.clone()), Color::WHITE)))),
+            Pos { x: 1, y: 3 } => UIRect::new(Box::new(|_self: &Win,_| if let Some(level) = _self.level.as_ref() {
                 if level.started.is_none() {
                     StateEnum::Enable
                 } else {

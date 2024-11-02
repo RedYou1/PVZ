@@ -6,7 +6,7 @@ use crate::{
     grid::GridChildren,
     missing::{
         clipboard::{get_clipboard_text, set_clipboard_text},
-        ui_string::{draw_string, UIString},
+        ui_string::UIString,
     },
 };
 use sdl2::{
@@ -471,14 +471,7 @@ impl<Parent> GridChildren<Parent> for TextBox<Parent> {
         canvas.set_draw_color(front_color);
         canvas.draw_frect(self.surface)?;
         if !self.text().is_empty() {
-            draw_string(
-                canvas,
-                self.font,
-                None,
-                self.surface,
-                self.text(),
-                front_color,
-            )?;
+            self.text().draw(canvas, None, self.surface, front_color)?;
         }
         if let Some((index, to_index)) = self.is_selected() {
             if let Some(to_index) = to_index {

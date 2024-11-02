@@ -247,7 +247,7 @@ impl Win {
                     (
                         Pos { x: 0, y: map as usize * 2 },
                         Box::new(UIRect::new(
-                            font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
+                            Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
                             move |_self: &mut Win, _, _, _, canvas| {
                                 _self.set_map(canvas, map)
                             }))
@@ -268,7 +268,7 @@ impl Win {
                     (
                         Pos { x: 0, y: level as usize * 2 },
                         Box::new(UIRect::new(
-                            font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
+                            Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK)).action(Box::new(
                             move |_self: &mut Win, _, _, _, canvas| {
                                 _self.set_level(canvas, level)
                             })).text(Box::new(
@@ -279,7 +279,7 @@ impl Win {
                     )
                 }))
                 ), 235., 90. * self.levels_count as f32, Box::new(|_, _|Color::RGBA(200,200,200,200))),
-            Pos{x:3, y:2} => UIRect::new(font,Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK))
+            Pos{x:3, y:2} => UIRect::new(Box::new(|_,_|StateEnum::Enable), Box::new(|_,_| Color::BLACK))
                 .action(Box::new(
                     move |_self: &mut Win, _, _, _, canvas| {
                         let level = _self.levels_count;
@@ -302,7 +302,7 @@ impl Win {
                 RowType::Ratio(10.),
                 RowType::Ratio(1.),
                 RowType::Ratio(10.);
-                Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::quit)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.quit.clone()), Color::WHITE)))),
+                Pos{x:0,y:0} => UIRect::new(Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::quit)).text(Box::new(|_self, _| Ok((Some(_self.texts()?.quit.clone()), Color::WHITE)))),
             )
         );
         Ok(())
@@ -328,7 +328,7 @@ impl GameWindow for Win {
             RowType::Ratio(100.),
             RowType::Ratio(620.),
             RowType::Ratio(100.);
-            Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
+            Pos{x:0,y:0} => UIRect::new(Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
             Pos{x:0,y:1} => RowsEditor::new(&mut self.map_config.map.rows),
             Pos{x:0,y:2} => simple_grid!(
                 self,
@@ -336,8 +336,8 @@ impl GameWindow for Win {
                 ColType::Ratio(1.);
                 RowType::Ratio(1.),
                 RowType::Ratio(1.);
-                Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::add_row)).text(Box::new(|_self, _| Ok((UIString::new(font, "Add row".to_owned())?, Color::WHITE)))),
-                Pos{x:0,y:1} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::sub_row)).text(Box::new(|_self, _| Ok((UIString::new(font, "Remove row".to_owned())?, Color::WHITE)))),
+                Pos{x:0,y:0} => UIRect::new(Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::add_row)).text(Box::new(|_self, _| Ok((UIString::new(font, "Add row".to_owned())?, Color::WHITE)))),
+                Pos{x:0,y:1} => UIRect::new(Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(Self::sub_row)).text(Box::new(|_self, _| Ok((UIString::new(font, "Remove row".to_owned())?, Color::WHITE)))),
             ),
             Pos{x:1,y:1} => RefElement::new(unsafe{map_config.as_mut().ok_or("unwrap ptr")?}),
             Pos{x:1,y:0} => simple_grid!(
@@ -352,10 +352,10 @@ impl GameWindow for Win {
                 ColType::Ratio(1.),
                 ColType::Ratio(10.);
                 RowType::Ratio(1.);
-                Pos{x:1,y:0} => UIRect::new(font, Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, format!("top:{}", _self.map_config.map.top))?, Color::WHITE)))),
-                Pos{x:3,y:0} => UIRect::new(font, Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, format!("left:{}", _self.map_config.map.left))?, Color::WHITE)))),
-                Pos{x:5,y:0} => UIRect::new(font, Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, format!("width:{}", _self.map_config.map.width))?, Color::WHITE)))),
-                Pos{x:7,y:0} => UIRect::new(font, Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, format!("height:{}", _self.map_config.map.height))?, Color::WHITE)))),
+                Pos{x:1,y:0} => UIRect::new( Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, format!("top:{}", _self.map_config.map.top))?, Color::WHITE)))),
+                Pos{x:3,y:0} => UIRect::new( Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, format!("left:{}", _self.map_config.map.left))?, Color::WHITE)))),
+                Pos{x:5,y:0} => UIRect::new( Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, format!("width:{}", _self.map_config.map.width))?, Color::WHITE)))),
+                Pos{x:7,y:0} => UIRect::new( Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, format!("height:{}", _self.map_config.map.height))?, Color::WHITE)))),
             ),
             Pos{x:1,y:2} => simple_grid!(
                 self,
@@ -366,7 +366,7 @@ impl GameWindow for Win {
                 ColType::Ratio(10.),
                 ColType::Ratio(10.);
                 RowType::Ratio(1.);
-                Pos{x:0,y:0} => UIRect::new(font, Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, "Cols:".to_owned())?, Color::WHITE)))),
+                Pos{x:0,y:0} => UIRect::new(Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).text(Box::new(|_self: &Win, _| Ok((UIString::new(font, "Cols:".to_owned())?, Color::WHITE)))),
                 Pos{x:1,y:0} => TextBox::new(
                     "col".to_owned(),
                     &mut self.selected,
@@ -379,7 +379,7 @@ impl GameWindow for Win {
                     Box::new(|_self: &Win, _| if _self.col_text.as_str().eq("0") || _self.col_text.as_str().parse::<u8>().is_err() {Color::RED} else {Color::BLACK}),
                 ),
             ),
-            Pos{x:2,y:2} => UIRect::new(font, Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(|_self: &mut Win,_,_,_,_| _self.save_map())).text(Box::new(|_, _| Ok((UIString::new(font, "Save".to_owned())?, Color::WHITE)))),
+            Pos{x:2,y:2} => UIRect::new( Box::new(|_, _| StateEnum::Enable),Box::new(|_,_| Color::BLACK)).action(Box::new(|_self: &mut Win,_,_,_,_| _self.save_map())).text(Box::new(|_, _| Ok((UIString::new(font, "Save".to_owned())?, Color::WHITE)))),
         );
         self.level_page = simple_grid!(
             self,
@@ -390,7 +390,7 @@ impl GameWindow for Win {
             RowType::Ratio(100.),
             RowType::Ratio(620.),
             RowType::Ratio(100.);
-            Pos{x:0,y:0} => UIRect::new(font,Box::new(|_, _| StateEnum::Enable),Box::new(|_self: &Win,_| if _self.save_ok { Color::BLACK } else {Color::RED})).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
+            Pos{x:0,y:0} => UIRect::new(Box::new(|_, _| StateEnum::Enable),Box::new(|_self: &Win,_| if _self.save_ok { Color::BLACK } else {Color::RED})).action(Box::new(Self::_return)).text(Box::new(|_self, _| Ok((Some(_self.texts()?._return.clone()), Color::WHITE)))),
             Pos{x:1,y:0} => simple_grid!(
                 self,
                 Win,
@@ -434,7 +434,6 @@ impl GameWindow for Win {
                     }),
                 ),
                 Pos{x:2,y:0} => UIRect::new(
-                    font,
                     Box::new(|_self: &Win, _| {
                         if let Ok(map) = _self.level_config.map.as_str().parse::<u8>() {
                             if map < _self.maps_count {
