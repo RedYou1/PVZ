@@ -5,7 +5,7 @@ mod rows_editor;
 mod win;
 
 use crate::win::Win;
-use sdl::run;
+use red_sdl::run;
 
 pub fn main() -> Result<(), String> {
     run(

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, time::Duration};
 
-use sdl::{
+use red_sdl::{
     event::Event,
     functions::StateEnum,
     game_window::GameWindow,

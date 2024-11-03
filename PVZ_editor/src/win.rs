@@ -5,7 +5,7 @@ use pvz::{
     texts::{load_texts, Texts},
     textures::{load_textures, textures},
 };
-use sdl::{
+use red_sdl::{
     event::Event,
     functions::StateEnum,
     game_window::GameWindow,

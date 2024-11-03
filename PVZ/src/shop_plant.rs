@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, time::Duration};
 
-use sdl::{event::Event, grid::GridChildren, missing::ui_string::UIString};
+use red_sdl::{event::Event, grid::GridChildren, missing::ui_string::UIString};
 use sdl2::{mouse::MouseButton, pixels::Color, rect::FRect, render::Canvas, video::Window};
 
 use crate::{level::Level, plants::Plant, textures::textures};

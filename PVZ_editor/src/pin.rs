@@ -1,7 +1,7 @@
 use std::{ptr::null_mut, time::Duration};
 
 use pvz::level::config::Map;
-use sdl::{event::Event, user_control::UserControl};
+use red_sdl::{event::Event, user_control::UserControl};
 use sdl2::{
     gfx::primitives::DrawRenderer,
     mouse::MouseButton,

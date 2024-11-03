@@ -1,4 +1,4 @@
-use sdl::missing::ui_string::UIString;
+use red_sdl::missing::ui_string::UIString;
 use sdl2::ttf::Font;
 
 pub struct Texts {

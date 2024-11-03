@@ -1,7 +1,7 @@
 use std::thread;
 
 use pvz::{win::Win, UPDATE_AVAILABLE};
-use sdl::run;
+use red_sdl::run;
 use serde_json::Value;
 
 pub fn main() -> Result<(), String> {
@@ -22,7 +22,7 @@ pub fn update_available() -> Result<bool, String> {
     let req = reqwest::blocking::Client::builder()
         .build()
         .map_err(|e| e.to_string())?
-        .get("https://api.github.com/repos/RedYou1/SDL/releases")
+        .get("https://api.github.com/repos/RedYou1/PVZ/releases")
         .header("User-Agent", "PVZ")
         .send()
         .map_err(|e| e.to_string())?;

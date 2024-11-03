@@ -5,7 +5,7 @@ use pvz::{
     textures::textures,
     zombie::{valide_zombie_id, zombie_from_id},
 };
-use sdl::{
+use red_sdl::{
     event::Event,
     functions::StateEnum,
     grid::{ColType, Grid, GridChildren, Pos, RowType},

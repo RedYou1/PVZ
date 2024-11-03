@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use sdl::{event::Event, grid::GridChildren};
+use red_sdl::{event::Event, grid::GridChildren};
 use sdl2::{
     mouse::MouseButton,
     rect::FRect,

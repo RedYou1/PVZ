@@ -5,7 +5,7 @@ use std::ptr::addr_of;
 
 use crate::game_of_life::SQUARE_SIZE;
 use game_of_life::GameOfLife;
-use sdl::run;
+use red_sdl::run;
 
 pub fn main() -> Result<(), String> {
     run(

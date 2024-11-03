@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use pvz::textures::textures;
-use sdl::{
+use red_sdl::{
     event::Event,
     functions::StateEnum,
     grid::{ColType, Grid, GridChildren, Pos, RowType},

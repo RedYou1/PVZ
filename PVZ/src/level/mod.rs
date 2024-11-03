@@ -1,5 +1,5 @@
 use config::Map;
-use sdl::{
+use red_sdl::{
     event::Event,
     functions::StateEnum,
     grid::{ColType, Grid, GridChildren, Pos, RowType},

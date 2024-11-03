@@ -19,7 +19,7 @@ unwrap_in_result = "warn"
 map_unwrap_or = "warn"
 
 [dependencies]
-sdl = { path = "../lib" }
+red-sdl = "=0.1.0"
 pvz = { path = "../PVZ" }
 
 [dependencies.sdl2]

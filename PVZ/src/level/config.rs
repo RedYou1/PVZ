@@ -1,5 +1,5 @@
 use rand::Rng;
-use sdl::grid::Grid;
+use red_sdl::grid::Grid;
 use sdl2::rect::FRect;
 use std::{
     collections::HashMap,

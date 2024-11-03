@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use pvz::{level::config::Map, textures::textures};
-use sdl::{event::Event, grid::GridChildren, user_control::UserControl};
+use red_sdl::{event::Event, grid::GridChildren, user_control::UserControl};
 use sdl2::{
     rect::{FRect, Rect},
     render::Canvas,
