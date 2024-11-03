@@ -35,5 +35,5 @@ pub fn update_available() -> Result<bool, String> {
         .skip_while(|e| !e.starts_with("pvz"))
         .collect();
     let first = *releases.first().ok_or("Error fetching".to_owned())?;
-    Ok(first.ne("pvz_v0.1.4"))
+    Ok(first.ne("pvz_v0.1.5"))
 }
