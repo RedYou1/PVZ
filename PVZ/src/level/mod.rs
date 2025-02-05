@@ -1,12 +1,17 @@
+use anyhow::{anyhow, Result};
 use config::Map;
 use red_sdl::{
     event::Event,
-    functions::StateEnum,
-    grid::{ColType, Grid, GridChildren, Pos, RowType},
     missing::{rect::scale, ui_string::UIString},
-    ui_rect::UIRect,
+    refs::{MutRef, Ref},
+    ui_element::{
+        grid::{ColType, Grid, Pos, RowType},
+        ui_rect::UIRect,
+    },
     user_control::UserControl,
+    zero,
 };
+use red_sdl_macro::UserControl;
 use sdl2::{
     keyboard::Keycode,
     mouse::MouseButton,
@@ -23,24 +28,27 @@ mod draws;
 mod updates;
 
 use crate::{
+    default_button,
     map_plant::MapPlant,
-    plants::Plant,
-    projectile::Projectile,
+    plants::{
+        nenuphar::Nenuphar, peashooter::PeaShooter, sunflower::Sunflower,
+        triple_peashooter::PlantTriple, Plant,
+    },
+    projectile::{DamageType, Projectile},
     shop_plant::ShopPlant,
     sun::Sun,
-    textures::{self, textures},
     win::Win,
     zombie::{zombie_from_id, Zombie},
+    State,
 };
 
 pub struct Level {
     pub id: u8,
-    pub started: Option<Grid<Level>>,
+    pub started: Option<Grid<Level, State, LevelShopElement>>,
     pub surface: FRect,
     pub suns: Vec<Sun>,
     pub next_sun: Duration,
-    pub plants: Vec<Vec<Option<Box<dyn Plant>>>>,
-    pub map_plants: Grid<Level>,
+    pub map_plants: Grid<Level, State, MapPlant>,
     pub zombies: Vec<Vec<Box<dyn Zombie>>>,
     pub projectiles: Vec<Vec<Box<dyn Projectile>>>,
     pub map: Map,
@@ -53,10 +61,98 @@ pub struct Level {
     pub end: Option<bool>,
 }
 
+#[derive(UserControl)]
+#[parent(Level)]
+#[state(State)]
+pub enum LevelShopElement {
+    Plant(ShopPlant),
+    Text(UIRect<Level, State>),
+}
+
 impl Level {
-    fn take_plant(&mut self, plant: &dyn Plant, x: f32, y: f32) {
-        if self.dragging.is_none() {
-            self.dragging = Some((x, y, plant.clone()));
+    fn new(
+        level: u8,
+        map: Map,
+        rows: usize,
+        money: u32,
+        spawn_waits: Vec<Duration>,
+        spawn_zombies: Vec<Vec<(u8, f32, f32)>>,
+    ) -> Self {
+        let (c_width, c_height) = (map.col_width(), map.row_heigth());
+        let rows_type = &map.rows;
+        Self {
+            id: level,
+            started: None,
+            surface: zero(),
+            suns: Vec::with_capacity(4),
+            next_sun: Duration::new(5, 0),
+            map_plants: Grid::new(
+                {
+                    let mut cols: Vec<ColType> = (0..map.cols)
+                        .flat_map(|_| {
+                            [
+                                ColType::Ratio(5. / 1280.),
+                                ColType::Ratio(c_width - 10. / 1280.),
+                                ColType::Ratio(5. / 1280.),
+                            ]
+                        })
+                        .collect();
+                    cols.insert(0, ColType::Ratio(map.left));
+                    cols.push(ColType::Ratio(1. - map.left - map.width));
+                    cols
+                },
+                {
+                    let mut rows: Vec<RowType> = (0..rows_type.len())
+                        .flat_map(|_| {
+                            [
+                                RowType::Ratio(5. / 720.),
+                                RowType::Ratio(c_height - 10. / 720.),
+                                RowType::Ratio(5. / 720.),
+                            ]
+                        })
+                        .collect();
+                    rows.insert(0, RowType::Ratio(map.top));
+                    rows.push(RowType::Ratio(1. - map.top - map.height));
+                    rows
+                },
+                HashMap::from_iter((0..rows).flat_map(|y| {
+                    (0..map.cols as usize).map(move |x| {
+                        (
+                            Pos {
+                                x: x * 3 + 2,
+                                y: y * 3 + 2,
+                            },
+                            MapPlant {
+                                row_type: rows_type[y],
+                                plant: None,
+                                surface: zero(),
+                            },
+                        )
+                    })
+                })),
+            ),
+            zombies: (0..rows).map(|_| Vec::with_capacity(16)).collect(),
+            projectiles: (0..rows).map(|_| Vec::with_capacity(4)).collect(),
+            map,
+            spawn_waits,
+            spawn_zombies,
+            shop_plants: vec![
+                Box::new(Nenuphar::new()),
+                Box::new(Sunflower::new()),
+                Box::new(PeaShooter::new(DamageType::Normal)),
+                Box::new(PeaShooter::new(DamageType::Ice)),
+                Box::new(PeaShooter::new(DamageType::Fire)),
+                Box::new(PlantTriple::new()),
+            ],
+            dragging: None,
+            money,
+            end: None,
+        }
+    }
+
+    fn take_plant(mut this: MutRef<Self>, plant: Box<dyn Plant>, x: f32, y: f32) {
+        if this.dragging.is_none() {
+            this.dragging = Some((x, y, plant));
         }
     }
 
@@ -65,23 +161,23 @@ impl Level {
             if self.money >= plant.cost() {
                 if let Some(x) = self.map.coord_to_pos_x(x / self.surface.width()) {
                     if let Some(y) = self.map.coord_to_pos_y(y / self.surface.height()) {
-                        match self.map.rows[y] {
-                            config::RowType::Grass => {
-                                if !plant.is_nenuphar() && self.plants[y][x].is_none() {
-                                    self.money -= plant.cost();
-                                    self.plants[y][x] = Some(plant.as_ref().clone());
-                                }
-                            }
-                            config::RowType::Water => {
-                                if plant.can_go_in_water() {
-                                    if self.plants[y][x].is_none() {
+                        if let Some(slot) = self.map_plants.get_element_mut(x * 3 + 2, y * 3 + 2) {
+                            match self.map.rows[y] {
+                                config::RowType::Grass => {
+                                    if !plant.is_nenuphar() && slot.plant.is_none() {
                                         self.money -= plant.cost();
-                                        self.plants[y][x] = Some(plant.as_ref().clone());
+                                        slot.plant = Some(plant.as_ref().clone());
                                     }
-                                } else if let Some(p) = self.plants[y][x].as_mut() {
-                                    if p.is_nenuphar() {
+                                }
+                                config::RowType::Water => {
+                                    if plant.can_go_in_water() && slot.plant.is_none() {
                                         self.money -= plant.cost();
-                                        *p = plant.as_ref().clone();
+                                        slot.plant = Some(plant.as_ref().clone());
+                                    } else if let Some(nen) = slot.plant.as_ref() {
+                                        if nen.is_nenuphar() {
+                                            self.money -= plant.cost();
+                                            slot.plant = Some(plant.as_ref().clone());
+                                        }
                                     }
                                 }
                             }
@@ -93,12 +189,15 @@ impl Level {
         }
     }
 
-    pub fn start(&mut self, canvas: &mut Canvas<Window>) -> Result<(), String> {
-        let _self = self as *mut Self;
-        if self.started.is_some() {
+    pub fn start(
+        mut this: MutRef<Self>,
+        canvas: &Canvas<Window>,
+        state: MutRef<State>,
+    ) -> Result<()> {
+        if this.started.is_some() {
             return Ok(());
         }
-        let mut rows: Vec<RowType> = self
+        let mut rows: Vec<RowType> = this
             .shop_plants
             .iter()
             .flat_map(|_| [RowType::Ratio(132.5), RowType::Ratio(10.)])
@@ -115,28 +214,25 @@ impl Level {
         }
 
         let mut element =
-            HashMap::from_iter(self.shop_plants.iter().enumerate().map(|(i, plant)| {
+            HashMap::from_iter(this.shop_plants.iter().enumerate().map(|(i, plant)| {
                 (
                     Pos { x: 1, y: i * 2 + 1 },
-                    Box::new(ShopPlant::new(Self::take_plant, plant.as_ref().clone()))
-                        as Box<dyn GridChildren<Level>>,
+                    ShopPlant::new(Self::take_plant, plant.as_ref().clone()).into(),
                 )
             }));
         element.insert(
             Pos { x: 1, y: moneyid },
-            Box::new(
-                UIRect::new(
-                    Box::new(|_, _| StateEnum::Enable),
-                    Box::new(|_, _| Color::BLACK),
-                )
-                .text(Box::new(|_self: &Level, _| {
-                    UIString::new(&textures()?.font, format!("{}$", _self.money))
-                        .map(|s| (s, Color::WHITE))
-                })),
-            ) as Box<dyn GridChildren<Level>>,
+            default_button()
+                .text(Box::new(|_, _self: Ref<Level>, _state: Ref<State>| {
+                    UIString::new(
+                        _state.as_ref().textures().font(),
+                        format!("{}$", _self.money),
+                    )
+                    .map(|s| (s, Color::WHITE))
+                }))
+                .into(),
         );
-        let mut shop = Grid::new(
-            self,
+        let mut grid = Grid::new(
             vec![
                 ColType::Ratio(10.),
                 ColType::Ratio(100.),
@@ -145,103 +241,68 @@ impl Level {
             rows,
             element,
         );
-        shop.init(canvas)?;
-        shop.init_frame(canvas, self.surface)?;
-        self.started = Some(shop);
+        let surface = this.surface;
+        UserControl::event(
+            (&mut grid).into(),
+            canvas,
+            Event::ElementMove {
+                x: surface.x(),
+                y: surface.y(),
+            },
+            this,
+            state,
+        )?;
+        UserControl::event(
+            (&mut grid).into(),
+            canvas,
+            Event::ElementResize {
+                width: surface.width(),
+                height: surface.height(),
+            },
+            this,
+            state,
+        )?;
+        this.started = Some(grid);
         Ok(())
     }
 }
 
-impl GridChildren<Win> for Level {
-    fn grid_init(&mut self, canvas: &mut Canvas<Window>, _: &mut Win) -> Result<(), String> {
-        let _self = self as *mut Self;
-        let mut cols: Vec<ColType> = (0..self.map.cols)
-            .flat_map(|_| {
-                [
-                    ColType::Ratio(5. / 1280.),
-                    ColType::Ratio(self.map.col_width() - 10. / 1280.),
-                    ColType::Ratio(5. / 1280.),
-                ]
-            })
-            .collect();
-        cols.insert(0, ColType::Ratio(self.map.left));
-        cols.push(ColType::Ratio(1. - self.map.left - self.map.width));
-        let mut rows: Vec<RowType> = (0..self.map.rows.len())
-            .flat_map(|_| {
-                [
-                    RowType::Ratio(5. / 720.),
-                    RowType::Ratio(self.map.row_heigth() - 10. / 720.),
-                    RowType::Ratio(5. / 720.),
-                ]
-            })
-            .collect();
-        rows.insert(0, RowType::Ratio(self.map.top));
-        rows.push(RowType::Ratio(1. - self.map.top - self.map.height));
-        let rows_type = self.map.rows.clone();
-        let rows_type: &[config::RowType] = rows_type.as_ref();
-        self.map_plants = Grid::new(
-            self,
-            cols,
-            rows,
-            HashMap::from_iter(self.plants.iter().enumerate().flat_map(|(y, plants)| {
-                plants.iter().enumerate().map(move |(x, plant)| {
-                    (
-                        Pos {
-                            x: x * 3 + 2,
-                            y: y * 3 + 2,
-                        },
-                        Box::new(MapPlant {
-                            row_type: rows_type[y],
-                            plant,
-                            surface: FRect::new(0., 0., 0., 0.),
-                        }) as Box<dyn GridChildren<Level>>,
-                    )
-                })
-            })),
-        );
-        self.map_plants.grid_init(canvas, unsafe {
-            _self.as_mut().ok_or("unwrap ptr init level")?
-        })
+impl UserControl<Win, State> for Level {
+    fn surface(this: Ref<Self>, _: Ref<Win>, _: Ref<State>) -> FRect {
+        this.surface
     }
 
-    fn grid_init_frame(
-        &mut self,
-        canvas: &mut Canvas<Window>,
-        surface: FRect,
-        _: &mut Win,
-    ) -> Result<(), String> {
-        if self.surface != surface {
-            //TODO
-            self.surface = surface;
-        }
-        if let Some(started) = self.started.as_mut() {
-            started.init_frame(canvas, self.surface)?;
-        }
-        self.map_plants.init_frame(canvas, surface)
-    }
-
-    fn grid_event(
-        &mut self,
-        canvas: &mut Canvas<Window>,
+    fn event(
+        mut this: MutRef<Self>,
+        canvas: &Canvas<Window>,
         event: Event,
-        _: &mut Win,
-    ) -> Result<(), String> {
+        _: MutRef<Win>,
+        state: MutRef<State>,
+    ) -> Result<()> {
         match event {
+            Event::ElementMove { x, y } => {
+                this.surface.set_x(x);
+                this.surface.set_y(y);
+            }
+            Event::ElementResize { width, height } => {
+                this.surface.set_width(width);
+                this.surface.set_height(height);
+            }
             Event::KeyDown {
                 keycode: Some(Keycode::Space),
                 ..
             } => {
-                self.start(canvas)?;
+                Self::start(this, canvas, state)?;
             }
             Event::MouseMotion { x, y, .. } => {
-                for i in self
+                for i in this
                     .suns
                     .iter()
                     .enumerate()
                     .filter_map(|(i, sun)| {
                         if sun.rect().contains_point(FPoint::new(
-                            x / self.surface.width(),
-                            y / self.surface.height(),
+                            x / this.surface.width(),
+                            y / this.surface.height(),
                         )) {
                             Some(i)
                         } else {
@@ -251,12 +312,12 @@ impl GridChildren<Win> for Level {
                     .rev()
                     .collect::<Vec<usize>>()
                 {
-                    self.money += 25;
-                    self.suns.remove(i);
+                    this.money += 25;
+                    this.suns.remove(i);
                 }
-                if let Some(plant) = self.dragging.as_mut() {
-                    plant.0 = x / self.surface.width();
-                    plant.1 = y / self.surface.height();
+                if let Some(plant) = this.as_mut().dragging.as_mut() {
+                    plant.0 = x / this.surface.width();
+                    plant.1 = y / this.surface.height();
                 }
             }
             Event::MouseButtonUp {
@@ -265,107 +326,124 @@ impl GridChildren<Win> for Level {
                 y,
                 ..
             } => {
-                self.drop_plant(x, y);
+                this.drop_plant(x, y);
             }
             _ => {}
         }
 
-        if let Some(started) = self.started.as_mut() {
-            started.event(canvas, event.clone())?;
+        if let Some(started) = this.started.as_mut() {
+            UserControl::event(started.into(), canvas, event.clone(), this, state)?;
         }
-        self.map_plants.event(canvas, event)?;
-        Ok(())
+        UserControl::event((&mut this.map_plants).into(), canvas, event, this, state)
     }
 
-    fn grid_update(
-        &mut self,
-        canvas: &mut Canvas<Window>,
+    fn update(
+        mut this: MutRef<Self>,
+        canvas: &Canvas<Window>,
         elapsed: Duration,
-        _: &mut Win,
-    ) -> Result<(), String> {
-        if self.started.is_none() {
+        _: MutRef<Win>,
+        state: MutRef<State>,
+    ) -> Result<()> {
+        if this.started.is_none() {
             return Ok(());
         }
-        if self.end.is_some() {
+        if this.end.is_some() {
             return Ok(());
         }
-        if !self.zombies.iter().flatten().any(|_| true) && self.spawn_waits.is_empty() {
-            self.end = Some(true);
+        if !this.zombies.iter().flatten().any(|_| true) && this.spawn_waits.is_empty() {
+            this.end = Some(true);
             return Ok(());
         }
-        for plant in self.plants.iter_mut().flatten().flatten() {
-            plant.update(elapsed)?;
+        for (_, mut plant) in this.map_plants.iter_mut() {
+            if let Some(plant) = plant.plant.as_mut() {
+                plant.update(elapsed)?;
+            }
         }
-        self.map_plants.update(canvas, elapsed)?;
-        self.update_zombies(elapsed)?;
-        if let Some(false) = self.end {
+        UserControl::update((&mut this.map_plants).into(), canvas, elapsed, this, state)?;
+        this.as_mut().update_zombies(elapsed)?;
+        if let Some(false) = this.end {
             return Ok(());
         }
-        self.update_projectiles(elapsed)?;
-        self.update_suns(elapsed)?;
-        self.spawn_projectiles();
-        self.update_zombie_wave(elapsed);
-        if let Some(started) = self.started.as_mut() {
-            started.update(canvas, elapsed)?;
+        this.as_mut().update_projectiles(elapsed)?;
+        this.as_mut().update_suns(elapsed)?;
+        this.as_mut().spawn_projectiles();
+        this.as_mut().update_zombie_wave(elapsed);
+        if let Some(started) = this.as_mut().started.as_mut() {
+            UserControl::update(started.into(), canvas, elapsed, this, state)?;
         }
         Ok(())
     }
 
-    fn grid_draw(&self, canvas: &mut Canvas<Window>, parent: &Win) -> Result<(), String> {
-        canvas.copy(
-            &textures::textures()?.maps[self.map.id as usize],
-            Some(Rect::new(
-                if self.started.is_none() { 238 } else { 0 },
-                0,
-                762,
-                429,
-            )),
-            None,
-        )?;
+    fn draw(
+        this: Ref<Self>,
+        canvas: &mut Canvas<Window>,
+        _: Ref<Win>,
+        state: Ref<State>,
+    ) -> Result<()> {
+        canvas
+            .copy(
+                state.as_ref().textures().map(this.map.id as usize),
+                Some(Rect::new(
+                    if this.started.is_none() { 238 } else { 0 },
+                    0,
+                    762,
+                    429,
+                )),
+                None,
+            )
+            .map_err(|e| anyhow!(e))?;
 
-        if let Some(started) = self.started.as_ref() {
-            self.map_plants.draw(canvas)?;
-            self.draw_zombies(canvas)?;
-            self.draw_projectiles(canvas)?;
-            started.draw(canvas)?;
-            self.draw_suns(canvas)?;
-            if let Some(end) = self.end {
+        if let Some(started) = this.started.as_ref() {
+            UserControl::draw((&this.map_plants).into(), canvas, this, state)?;
+            this.as_ref().draw_zombies(canvas, state.as_ref())?;
+            this.as_ref().draw_projectiles(canvas, state.as_ref())?;
+            UserControl::draw(started.into(), canvas, this, state)?;
+            this.as_ref().draw_suns(canvas, state)?;
+            if let Some(end) = this.end {
                 if end {
-                    &parent.texts()?.win
+                    &state.texts().win
                 } else {
-                    &parent.texts()?.lost
+                    &state.texts().lost
                 }
                 .draw(
                     canvas,
                     None,
-                    scale(self.surface, FRect::new(0.25, 0.25, 0.5, 0.5)),
+                    scale(this.surface, FRect::new(0.25, 0.25, 0.5, 0.5)),
                     Color::WHITE,
                 )?;
             }
-            if let Some((x, y, plant)) = self.dragging.as_ref() {
-                canvas.copy_f(
-                    plant.texture()?,
-                    None,
-                    scale(
-                        self.surface,
-                        FRect::new(
-                            x - (self.map.col_width() - 10. / 1280.) / 2.,
-                            y - (self.map.row_heigth() - 10. / 720.) / 2.,
-                            self.map.col_width() - 10. / 1280.,
-                            self.map.row_heigth() - 10. / 720.,
+            if let Some((x, y, plant)) = this.as_ref().dragging.as_ref() {
+                canvas
+                    .copy_f(
+                        plant.texture(state),
+                        None,
+                        scale(
+                            this.surface,
+                            FRect::new(
+                                x - (this.map.col_width() - 10. / 1280.) / 2.,
+                                y - (this.map.row_heigth() - 10. / 720.) / 2.,
+                                this.map.col_width() - 10. / 1280.,
+                                this.map.row_heigth() - 10. / 720.,
+                            ),
                         ),
-                    ),
-                )?;
+                    )
+                    .map_err(|e| anyhow!(e))?;
             }
             return Ok(());
         }
 
-        let mut t: Vec<&(u8, f32, f32)> = self.spawn_zombies.iter().flatten().collect();
+        let mut t: Vec<&(u8, f32, f32)> = this.spawn_zombies.iter().flatten().collect();
         t.sort_by(|(_, _, y1), (_, _, y2)| y1.total_cmp(y2));
         for &(z, x, y) in t {
             let mut z = zombie_from_id(z);
             z.set_x(x);
-            canvas.copy_f(z.texture()?, None, scale(self.surface, z.rect(y)))?;
+            canvas
+                .copy_f(
+                    z.texture(state.as_ref().textures()),
+                    None,
+                    scale(this.surface, z.rect(y)),
+                )
+                .map_err(|e| anyhow!(e))?;
         }
         Ok(())
     }

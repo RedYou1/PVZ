@@ -1,3 +1,4 @@
+use anyhow::Result;
 use rand::Rng;
 use std::time::Duration;
 
@@ -9,7 +10,7 @@ use super::{
 };
 
 impl Level {
-    pub(super) fn update_zombies(&mut self, elapsed: Duration) -> Result<(), String> {
+    pub(super) fn update_zombies(&mut self, elapsed: Duration) -> Result<()> {
         for (y, zombies) in self.zombies.iter_mut().enumerate() {
             for zombie in zombies.iter_mut() {
                 let prev_x = zombie.rect(0.).x();
@@ -21,7 +22,8 @@ impl Level {
                 } else {
                     do_damage_to_plant(
                         zombie.as_mut(),
-                        self.plants[y].as_mut(),
+                        y,
+                        &mut self.map_plants,
                         &self.map,
                         self.map.rows[y],
                         prev_x,
@@ -33,7 +35,7 @@ impl Level {
         Ok(())
     }
 
-    pub(super) fn update_projectiles(&mut self, elapsed: Duration) -> Result<(), String> {
+    pub(super) fn update_projectiles(&mut self, elapsed: Duration) -> Result<()> {
         for (y, projs) in self.projectiles.iter_mut().enumerate() {
             let mut indx = Vec::new();
             for (i, proj) in projs.iter_mut().enumerate() {
@@ -64,7 +66,7 @@ impl Level {
         Ok(())
     }
 
-    pub(super) fn update_suns(&mut self, elapsed: Duration) -> Result<(), String> {
+    pub(super) fn update_suns(&mut self, elapsed: Duration) -> Result<()> {
         for sun in self.suns.iter_mut() {
             sun.update(elapsed)?;
         }
@@ -72,10 +74,11 @@ impl Level {
             self.next_sun -= elapsed
         } else {
             self.next_sun = Duration::new(5, 0) - elapsed + self.next_sun;
+            let mut rng = rand::rng();
             self.suns.push(Sun::new(
-                rand::thread_rng().gen_range(0.0..1.0),
+                rng.random_range(0.0..1.0),
                 0.,
-                rand::thread_rng().gen_range(200.0..420.) / 720.,
+                rng.random_range(200.0..420.) / 720.,
             ));
         }
         Ok(())
@@ -88,12 +91,12 @@ impl Level {
                     elapsed -= f;
                     self.spawn_waits.remove(0);
                     let mut z = self.spawn_zombies.remove(0);
-                    let mut rng = rand::thread_rng();
+                    let mut rng = rand::rng();
                     let mut offsets: Vec<f32> = (0..self.map.rows.len()).map(|_| 1.).collect();
                     while !z.is_empty() {
-                        let i = rng.gen_range(0..z.len());
+                        let i = rng.random_range(0..z.len());
                         let mut z = zombie_from_id(z.remove(i).0);
-                        let i = rng.gen_range(0..self.map.rows.len()) as usize;
+                        let i = rng.random_range(0..self.map.rows.len()) as usize;
                         z.set_x(offsets[i]);
                         offsets[i] += 7.68 / 1280.;
                         self.zombies[i].push(z);

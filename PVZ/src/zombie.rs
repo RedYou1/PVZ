@@ -1,8 +1,9 @@
 use std::time::Duration;
 
+use anyhow::Result;
 use sdl2::{rect::FRect, render::Texture};
 
-use crate::{projectile::DamageType, textures};
+use crate::{projectile::DamageType, textures::Textures};
 
 pub fn zombie_from_id(id: u8) -> Box<dyn Zombie> {
     match id {
@@ -25,9 +26,9 @@ pub fn valide_zombie_id(id: u8) -> bool {
 }
 
 pub trait Zombie {
-    fn texture(&self) -> Result<&'static Texture<'static>, String>;
+    fn texture(&self, textures: &'static Textures) -> &'static Texture<'static>;
     fn rect(&self, y: f32) -> FRect;
-    fn update(&mut self, elapsed: Duration) -> Result<(), String>;
+    fn update(&mut self, elapsed: Duration) -> Result<()>;
 
     fn set_x(&mut self, x: f32);
     fn hit(
@@ -78,23 +79,22 @@ pub struct ZombieBase {
 }
 
 impl Zombie for ZombieBase {
-    fn texture(&self) -> Result<&'static Texture<'static>, String> {
-        let textures = textures::textures()?;
-        Ok(if self.freeze.is_zero() {
+    fn texture(&self, textures: &'static Textures) -> &'static Texture<'static> {
+        if self.freeze.is_zero() {
             match self.health.into() {
-                ZombieBaseHealth::MissingHead => &textures.zombie_simple_1,
-                ZombieBaseHealth::Normal => &textures.zombie_simple,
-                ZombieBaseHealth::HalfCone => &textures.zombie_cone_1,
-                ZombieBaseHealth::Cone => &textures.zombie_cone,
+                ZombieBaseHealth::MissingHead => textures.zombie_simple_1(),
+                ZombieBaseHealth::Normal => textures.zombie_simple(),
+                ZombieBaseHealth::HalfCone => textures.zombie_cone_1(),
+                ZombieBaseHealth::Cone => textures.zombie_cone(),
             }
         } else {
             match self.health.into() {
-                ZombieBaseHealth::MissingHead => &textures.zombie_freeze_simple_1,
-                ZombieBaseHealth::Normal => &textures.zombie_freeze_simple,
-                ZombieBaseHealth::HalfCone => &textures.zombie_freeze_cone_1,
-                ZombieBaseHealth::Cone => &textures.zombie_freeze_cone,
+                ZombieBaseHealth::MissingHead => textures.zombie_freeze_simple_1(),
+                ZombieBaseHealth::Normal => textures.zombie_freeze_simple(),
+                ZombieBaseHealth::HalfCone => textures.zombie_freeze_cone_1(),
+                ZombieBaseHealth::Cone => textures.zombie_freeze_cone(),
             }
-        })
+        }
     }
 
     fn rect(&self, y: f32) -> FRect {
@@ -109,7 +109,7 @@ impl Zombie for ZombieBase {
         )
     }
 
-    fn update(&mut self, elapsed: Duration) -> Result<(), String> {
+    fn update(&mut self, elapsed: Duration) -> Result<()> {
         self.x -= elapsed.as_secs_f32() * 17.321472 / 1280.;
         if !self.freeze.is_zero() {
             if self.freeze > elapsed {

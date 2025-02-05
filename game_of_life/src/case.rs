@@ -1,88 +1,97 @@
 use std::time::Duration;
 
-use red_sdl::{event::Event, grid::GridChildren};
-use sdl2::{
-    mouse::MouseButton,
-    rect::FRect,
-    render::{Canvas, Texture},
-    video::Window,
+use anyhow::{anyhow, Result};
+use red_sdl::{
+    event::Event,
+    refs::{MutRef, Ref},
+    user_control::UserControl,
 };
+use sdl2::{mouse::MouseButton, rect::FRect, render::Canvas, video::Window};
 
-use crate::{clock, set_state, state};
+use crate::{game_of_life::GameOfLife, State};
 
 pub struct Case {
-    pub x: usize,
-    pub y: usize,
-    pub texture1: &'static Texture<'static>,
-    pub texture2: &'static Texture<'static>,
+    pub value: bool,
     pub surface: FRect,
 }
 
-impl GridChildren<()> for Case {
-    fn grid_init(&mut self, _: &mut Canvas<Window>, _: &mut ()) -> Result<(), String> {
-        Ok(())
+impl UserControl<GameOfLife, State> for Case {
+    fn surface(this: Ref<Self>, _: Ref<GameOfLife>, _: Ref<State>) -> FRect {
+        this.surface
     }
 
-    fn grid_init_frame(
-        &mut self,
-        _: &mut Canvas<Window>,
-        surface: FRect,
-        _: &mut (),
-    ) -> Result<(), String> {
-        self.surface = surface;
-        Ok(())
-    }
-
-    fn grid_event(
-        &mut self,
-        _: &mut Canvas<Window>,
+    fn event(
+        mut this: MutRef<Self>,
+        _: &Canvas<Window>,
         event: Event,
-        _: &mut (),
-    ) -> Result<(), String> {
+        _: MutRef<GameOfLife>,
+        _: MutRef<State>,
+    ) -> Result<()> {
         match event {
-            Event::MouseButtonDown {
-                mouse_btn: MouseButton::Left,
-                ..
-            } => {
-                set_state(true, self.x, self.y);
+            Event::ElementMove { x, y } => {
+                this.surface.set_x(x);
+                this.surface.set_y(y);
             }
-            Event::MouseMotion { mousestate, .. } if mousestate.left() => {
-                set_state(true, self.x, self.y);
-            }
-            Event::MouseButtonDown {
-                mouse_btn: MouseButton::Right,
-                ..
-            } => {
-                set_state(false, self.x, self.y);
-            }
-            Event::MouseMotion { mousestate, .. } if mousestate.right() => {
-                set_state(false, self.x, self.y);
+            Event::ElementResize { width, height } => {
+                this.surface.set_width(width);
+                this.surface.set_height(height);
             }
             _ => {}
+        }
+        if event.hover(this.surface) {
+            match event {
+                Event::MouseButtonDown {
+                    mouse_btn: MouseButton::Left,
+                    ..
+                } => {
+                    this.value = true;
+                }
+                Event::MouseMotion { mousestate, .. } if mousestate.left() => {
+                    this.value = true;
+                }
+                Event::MouseButtonDown {
+                    mouse_btn: MouseButton::Right,
+                    ..
+                } => {
+                    this.value = false;
+                }
+                Event::MouseMotion { mousestate, .. } if mousestate.right() => {
+                    this.value = false;
+                }
+                _ => {}
+            }
         }
         Ok(())
     }
 
-    fn grid_update(
-        &mut self,
-        _: &mut Canvas<Window>,
+    fn update(
+        _: MutRef<Self>,
+        _: &Canvas<Window>,
         _: Duration,
-        _: &mut (),
-    ) -> Result<(), String> {
+        _: MutRef<GameOfLife>,
+        _: MutRef<State>,
+    ) -> Result<()> {
         Ok(())
     }
 
-    fn grid_draw(&self, canvas: &mut Canvas<Window>, _: &()) -> Result<(), String> {
-        if state(self.x, self.y) {
-            canvas.copy_f(
-                if clock() >= 15 {
-                    self.texture1
-                } else {
-                    self.texture2
-                },
-                None,
-                self.surface,
-            )?;
+    fn draw(
+        this: Ref<Self>,
+        canvas: &mut Canvas<Window>,
+        parent: Ref<GameOfLife>,
+        state: Ref<State>,
+    ) -> Result<()> {
+        if this.value {
+            canvas
+                .copy_f(
+                    if parent.clock >= 0.5 {
+                        &state.texture1
+                    } else {
+                        &state.texture2
+                    },
+                    None,
+                    this.surface,
+                )
+                .map_err(|e| anyhow!(e))?;
         }
         Ok(())
     }

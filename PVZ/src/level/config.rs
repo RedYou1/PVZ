@@ -1,6 +1,5 @@
+use anyhow::{anyhow, Result};
 use rand::Rng;
-use red_sdl::grid::Grid;
-use sdl2::rect::FRect;
 use std::{
     collections::HashMap,
     fs,
@@ -8,14 +7,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{
-    plants::{
-        nenuphar::Nenuphar, peashooter::PeaShooter, sunflower::Sunflower,
-        triple_peashooter::PlantTriple,
-    },
-    projectile::DamageType,
-    zombie::zombie_from_id,
-};
+use crate::zombie::zombie_from_id;
 
 use super::Level;
 
@@ -67,8 +59,8 @@ impl Map {
         self.width / self.cols as f32
     }
 
-    pub fn load(map: u8) -> std::io::Result<Self> {
-        let mut map_data = fs::read(format!("assets/maps/{map}.data"))?;
+    pub fn load(map: u8) -> Result<Self> {
+        let mut map_data = fs::read(format!("assets/maps/{map}.data")).map_err(|e| anyhow!(e))?;
         let top = f32::from_le_bytes([
             map_data.remove(0),
             map_data.remove(0),
@@ -114,7 +106,7 @@ impl Map {
         })
     }
 
-    pub fn save(&self) -> std::io::Result<()> {
+    pub fn save(&self) -> Result<()> {
         let mut map_data = Vec::with_capacity(32);
         map_data.extend(self.top.to_le_bytes());
         map_data.extend(self.left.to_le_bytes());
@@ -126,11 +118,11 @@ impl Map {
             RowType::Grass => 0,
             RowType::Water => 1,
         }));
-        fs::write(format!("assets/maps/{}.data", self.id), map_data)
+        fs::write(format!("assets/maps/{}.data", self.id), map_data).map_err(|e| anyhow!(e))
     }
 }
 impl Level {
-    pub fn save_config(&self) -> std::io::Result<()> {
+    pub fn save_config(&self) -> Result<()> {
         let mut level_data = Vec::with_capacity(32);
         level_data.push(self.map.id);
         level_data.extend(self.money.to_le_bytes());
@@ -150,10 +142,10 @@ impl Level {
             z_data.extend(zombies.into_iter().flat_map(|(k, v)| [k, v]));
             z_data
         }));
-        fs::write(format!("levels/{}.data", self.id), level_data)
+        fs::write(format!("levels/{}.data", self.id), level_data).map_err(|e| anyhow!(e))
     }
-    pub fn load(level: u8) -> std::io::Result<Self> {
-        let mut level_data = fs::read(format!("levels/{level}.data"))?;
+    pub fn load(level: u8) -> Result<Self> {
+        let mut level_data = fs::read(format!("levels/{level}.data")).map_err(|e| anyhow!(e))?;
 
         let map = Map::load(level_data.remove(0))?;
         let rows = map.rows.len();
@@ -184,39 +176,20 @@ impl Level {
             .collect();
 
         if !level_data.is_empty() {
-            return Err(io::Error::new(
+            return Err(anyhow!(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Wrong format".to_owned(),
-            ));
+            )));
         }
 
-        Ok(Self {
-            id: level,
-            started: None,
-            surface: FRect::new(0., 0., 0., 0.),
-            suns: Vec::with_capacity(4),
-            next_sun: Duration::new(5, 0),
-            plants: (0..rows)
-                .map(|_| (0..map.cols).map(|_| None).collect())
-                .collect(),
-            map_plants: unsafe { Grid::empty() },
-            zombies: (0..rows).map(|_| Vec::with_capacity(16)).collect(),
-            projectiles: (0..rows).map(|_| Vec::with_capacity(4)).collect(),
+        Ok(Level::new(
+            level,
             map,
+            rows,
+            money,
             spawn_waits,
             spawn_zombies,
-            shop_plants: vec![
-                Box::new(Nenuphar::new()),
-                Box::new(Sunflower::new()),
-                Box::new(PeaShooter::new(DamageType::Normal)),
-                Box::new(PeaShooter::new(DamageType::Ice)),
-                Box::new(PeaShooter::new(DamageType::Fire)),
-                Box::new(PlantTriple::new()),
-            ],
-            dragging: None,
-            money,
-            end: None,
-        })
+        ))
     }
 }
 
@@ -227,7 +200,7 @@ fn generate_zombies_wave(
     min_y: f32,
     max_y: f32,
 ) -> Vec<(u8, f32, f32)> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     data.chunks_exact(2)
         .take(types)
         .flat_map(|bytes| {
@@ -236,8 +209,8 @@ fn generate_zombies_wave(
                 .map(|_| {
                     (
                         bytes[0],
-                        rng.gen_range((min_x)..=(1. - width)),
-                        rng.gen_range((min_y - height)..=(max_y - height)),
+                        rng.random_range((min_x)..=(1. - width)),
+                        rng.random_range((min_y - height)..=(max_y - height)),
                     )
                 })
                 .collect::<Vec<(u8, f32, f32)>>()

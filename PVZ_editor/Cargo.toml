@@ -19,8 +19,10 @@ unwrap_in_result = "warn"
 map_unwrap_or = "warn"
 
 [dependencies]
-red-sdl = "=0.1.0"
+red-sdl = "=0.2.0"
+red-sdl-macro = "=0.2.0"
 pvz = { path = "../PVZ" }
+anyhow = "=1.0.95"
 
 [dependencies.sdl2]
 version = "=0.37.0"

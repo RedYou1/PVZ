@@ -1,11 +1,14 @@
 use std::time::Duration;
 
+use red_sdl::ui_element::grid::{Grid, Pos};
 use sdl2::rect::FRect;
 
 use crate::{
-    plants::{nenuphar::Nenuphar, Plant},
+    map_plant::MapPlant,
+    plants::nenuphar::Nenuphar,
     projectile::{DamageType, Projectile},
     zombie::Zombie,
+    State,
 };
 
 use super::{
@@ -14,21 +17,21 @@ use super::{
 };
 
 impl Level {
-    pub(super) fn spawn_projectiles(&mut self) {
-        for (y, plants) in self.plants.iter_mut().enumerate() {
-            for (x, plant) in plants.iter_mut().enumerate() {
-                if let Some(plant) = plant {
-                    let mut spawns = plant.should_spawn(
-                        self.map.pos_to_coord_x(x) + plant.rect(0., 0.).width() / 2.,
-                        self.map.pos_to_coord_y(y),
-                        y,
-                        self.map.rows.len() - 1,
-                        &self.zombies,
-                    );
-                    self.suns.append(&mut spawns.0);
-                    for (y, proj) in spawns.1 {
-                        self.projectiles[y].push(proj);
-                    }
+    pub(super) fn spawn_projectiles(&'static mut self) {
+        for (&Pos { x, y }, mut slot) in self.map_plants.iter_mut() {
+            let x = (x - 2) / 3;
+            let y = (y - 2) / 3;
+            if let Some(plant) = slot.as_mut().plant.as_mut() {
+                let mut spawns = plant.should_spawn(
+                    self.map.pos_to_coord_x(x) + plant.rect(0., 0.).width() / 2.,
+                    self.map.pos_to_coord_y(y),
+                    y,
+                    self.map.rows.len() - 1,
+                    &self.zombies,
+                );
+                self.suns.append(&mut spawns.0);
+                for (y, proj) in spawns.1 {
+                    self.projectiles[y].push(proj);
                 }
             }
         }
@@ -37,31 +40,39 @@ impl Level {
 
 pub(super) fn do_damage_to_plant(
     zombie: &mut dyn Zombie,
-    plants: &mut [Option<Box<dyn Plant>>],
+    y: usize,
+    plants: &mut Grid<Level, State, MapPlant>,
     config: &Map,
     row_type: RowType,
     prev_x: f32,
     elapsed: Duration,
 ) {
+    let y = y * 3 + 2;
     if let Some(x) = config.coord_to_pos_x(prev_x) {
-        if let Some(plant) = plants[x].as_mut() {
-            zombie.set_x(prev_x);
-            let diff = elapsed.as_secs_f32() * if zombie.freezed() { 0.5 } else { 1. };
-            if plant.health().as_secs_f32() < diff {
-                plants[x] = if row_type == RowType::Water && !plant.is_nenuphar() {
-                    Some(Box::new(Nenuphar::new()))
+        let x = x * 3 + 2;
+        if let Some(slot) = plants.get_element_mut(x, y) {
+            if let Some(plant) = slot.plant.as_mut() {
+                zombie.set_x(prev_x);
+                let diff = elapsed.as_secs_f32() * if zombie.freezed() { 0.5 } else { 1. };
+                if plant.health().as_secs_f32() < diff {
+                    slot.plant = if row_type == RowType::Water && !plant.is_nenuphar() {
+                        Some(Box::new(Nenuphar::new()))
+                    } else {
+                        None
+                    }
                 } else {
-                    None
+                    *plant.health() -= Duration::from_secs_f32(diff);
                 }
-            } else {
-                *plant.health() -= Duration::from_secs_f32(diff);
             }
         }
     } else if let Some(x) = config.coord_to_pos_x(zombie.rect(0.).left()) {
-        if let Some(plant) = plants[x].as_ref() {
-            let rect = plant.rect(config.pos_to_coord_x(x), 0.);
-            if zombie.rect(0.).has_intersection(rect) {
-                zombie.set_x(rect.x() + rect.width());
+        let x = x * 3 + 2;
+        if let Some(slot) = plants.get_element_mut(x, y) {
+            if let Some(plant) = slot.plant.as_mut() {
+                let rect = plant.rect(config.pos_to_coord_x(x), 0.);
+                if zombie.rect(0.).has_intersection(rect) {
+                    zombie.set_x(rect.x() + rect.width());
+                }
             }
         }
     }

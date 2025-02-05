@@ -1,12 +1,14 @@
 use std::time::Duration;
 
+use anyhow::Result;
+use red_sdl::refs::Ref;
 use sdl2::{rect::FRect, render::Texture};
 
 use crate::{
     projectile::{DamageType, Pea, Projectile},
     sun::Sun,
-    textures,
     zombie::Zombie,
+    State,
 };
 
 use super::Plant;
@@ -25,15 +27,15 @@ impl PlantTriple {
     }
 }
 impl Plant for PlantTriple {
-    fn texture(&self) -> Result<&'static Texture<'static>, String> {
-        Ok(&textures::textures()?.plant_triple)
+    fn texture(&self, state: Ref<State>) -> &'static Texture {
+        state.as_ref().textures().plant_triple()
     }
 
     fn rect(&self, x: f32, y: f32) -> FRect {
         FRect::new(x, y, 70. / 1280., 100. / 720.)
     }
 
-    fn update(&mut self, elapsed: Duration) -> Result<(), String> {
+    fn update(&mut self, elapsed: Duration) -> Result<()> {
         self.charge += elapsed;
         Ok(())
     }

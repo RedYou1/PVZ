@@ -1,8 +1,10 @@
 use std::time::Duration;
 
+use anyhow::Result;
+use red_sdl::refs::Ref;
 use sdl2::{rect::FRect, render::Texture};
 
-use crate::textures;
+use crate::State;
 
 pub struct Sun {
     pub x: f32,
@@ -15,15 +17,15 @@ impl Sun {
         Self { x, y, dist }
     }
 
-    pub fn texture(&self) -> Result<&'static Texture<'static>, String> {
-        Ok(&textures::textures()?.sun)
+    pub const fn texture(state: Ref<State>) -> &'static Texture<'static> {
+        state.as_ref().textures().sun()
     }
 
     pub fn rect(&self) -> FRect {
         FRect::new(self.x, self.y, 60. / 1280., 90. / 720.)
     }
 
-    pub fn update(&mut self, elapsed: Duration) -> Result<(), String> {
+    pub fn update(&mut self, elapsed: Duration) -> Result<()> {
         self.y = (self.y + elapsed.as_secs_f32() * 34.642944 / 720.).min(self.dist);
         Ok(())
     }

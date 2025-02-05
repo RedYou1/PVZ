@@ -19,7 +19,9 @@ unwrap_in_result = "warn"
 map_unwrap_or = "warn"
 
 [dependencies]
-sdl = { path = "../lib" }
+anyhow = "=1.0.95"
+red-sdl = "=0.2.0"
+red-sdl-macro = "=0.2.0"
 
 [dependencies.sdl2]
 version = "=0.37.0"
